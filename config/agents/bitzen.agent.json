@@ -1,0 +1,42 @@
+{
+  "name": "BitZen Agent",
+  "description": "Sovereign AI agent with Bitcoin liquidity and ZK-verified privacy on Starknet",
+  "model": "gpt-4",
+  "temperature": 0.7,
+  "plugins": [
+    {
+      "name": "bitcoin",
+      "enabled": true,
+      "config": {
+        "network": "testnet",
+        "defaultSwapAmount": "0.001",
+        "slippageTolerance": 0.02
+      }
+    },
+    {
+      "name": "zkproof",
+      "enabled": true,
+      "config": {
+        "verifierType": "s2",
+        "proofExpiration": 86400
+      }
+    },
+    {
+      "name": "account",
+      "enabled": true,
+      "config": {
+        "sessionKeyExpiration": 100000,
+        "maxDailySpend": "1000000000000000000"
+      }
+    }
+  ],
+  "autonomousMode": false,
+  "chatMode": true,
+  "commands": {
+    "swap": "Execute Bitcoin ↔ STRK atomic swap using Garden SDK",
+    "createSession": "Generate time-bounded session key for agent operations",
+    "verifyProof": "Verify ZK proof using Garaga verifier",
+    "checkBalance": "Query encrypted Starknet balance",
+    "register": "Register agent in ServiceRegistry with auditor staking"
+  }
+}

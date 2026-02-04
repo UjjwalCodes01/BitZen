@@ -1,0 +1,6 @@
+[sncast.sepolia]
+url = "https://starknet-sepolia.public.blastapi.io"
+account = "argent_account"
+
+[sncast.devnet]
+url = "http://localhost:5050"

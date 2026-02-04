@@ -1,0 +1,9 @@
+[sncast.sepolia]
+account = "argent_account"
+accounts-file = "~/.starknet_accounts/starknet_open_zeppelin_accounts.json"
+url = "https://starknet-sepolia.g.alchemy.com/starknet/version/rpc/v0_9/_hKu4IgnPgrF8O82GLuYU"
+
+[sncast.oz-deployer]
+account = "oz-deployer"
+accounts-file = "/home/ujwal/.starknet_accounts/starknet_open_zeppelin_accounts.json"
+network = "sepolia"

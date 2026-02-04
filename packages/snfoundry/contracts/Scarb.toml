@@ -6,22 +6,17 @@ edition = "2024_07"
 # See more keys and their definitions at https://docs.swmansion.com/scarb/docs/reference/manifest.html
 
 [dependencies]
-starknet = ">=2.12.2"
-openzeppelin_access = ">=2.0.0"
-openzeppelin_token = ">=2.0.0"
+starknet = "2.8.2"
+openzeppelin = { git = "https://github.com/OpenZeppelin/cairo-contracts.git", tag = "v0.20.0" }
+
+[cairo]
+# sierra-replace-ids = false  # Not needed without Garaga
 
 [dev-dependencies]
-openzeppelin_utils = ">=2.0.0"
-openzeppelin_testing = ">=4.6.0"
-snforge_std = ">=0.51.0"
+snforge_std = "0.50.0"
 
 [[target.starknet-contract]]
 casm = true # taggle this to `false` to speed up compilation/script tests
-
-[tool.scarb]
-allow-prebuilt-plugins = [
-	"snforge_std",
-] # Avoids the need to install Rust for snforge_std/starknet-foundry
 
 [tool.fmt]
 sort-module-level-items = true

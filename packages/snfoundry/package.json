@@ -1,11 +1,13 @@
 {
   "name": "@ss-2/snfoundry",
   "version": "0.0.1",
+  "type": "module",
   "scripts": {
     "chain": "starknet-devnet --seed 0",
     "clean": "cd contracts && scarb clean && cd ../deployments && node clear.mjs",
     "compile": "ts-node scripts-ts/compile.ts",
-    "deploy": "ts-node scripts-ts/helpers/deploy-wrapper.ts",
+    "deploy": "node scripts/deploy.js",
+    "deploy:old": "ts-node scripts-ts/helpers/deploy-wrapper.ts",
     "deploy:clear": "cd deployments && node clear.mjs $* && cd .. && ts-node scripts-ts/helpers/deploy-wrapper.ts $*",
     "deploy:no-reset": "yarn workspace @ss-2/snfoundry deploy --no-reset",
     "format": "prettier --write 'scripts-ts/**/*.{ts,tsx}' && cd contracts && scarb fmt",
