@@ -3,8 +3,9 @@
  * Centralized service for all BitZen backend API calls
  */
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3002';
-const API_VERSION = process.env.NEXT_PUBLIC_API_VERSION || 'v1';
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3002";
+const API_VERSION = process.env.NEXT_PUBLIC_API_VERSION || "v1";
 
 class BackendApiService {
   private baseUrl: string;
@@ -27,12 +28,12 @@ class BackendApiService {
    */
   private async request<T>(
     endpoint: string,
-    options: RequestInit = {}
+    options: RequestInit = {},
   ): Promise<T> {
     const token = this.getAuthToken();
-    
+
     const headers: HeadersInit = {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
       ...(token && { Authorization: `Bearer ${token}` }),
       ...options.headers,
     };
@@ -47,7 +48,7 @@ class BackendApiService {
         const error = await response.json().catch(() => ({
           message: `HTTP ${response.status}: ${response.statusText}`,
         }));
-        throw new Error(error.message || 'API request failed');
+        throw new Error(error.message || "API request failed");
       }
 
       return await response.json();
@@ -61,16 +62,16 @@ class BackendApiService {
    * Get stored auth token
    */
   private getAuthToken(): string | null {
-    if (typeof window === 'undefined') return null;
-    return localStorage.getItem('bitizen_auth_token');
+    if (typeof window === "undefined") return null;
+    return localStorage.getItem("bitizen_auth_token");
   }
 
   /**
    * Store auth token
    */
   setAuthToken(token: string): void {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('bitizen_auth_token', token);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("bitizen_auth_token", token);
     }
   }
 
@@ -78,8 +79,8 @@ class BackendApiService {
    * Clear auth token
    */
   clearAuthToken(): void {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('bitizen_auth_token');
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("bitizen_auth_token");
     }
   }
 
@@ -88,9 +89,11 @@ class BackendApiService {
   /**
    * Get nonce for wallet signature
    */
-  async getSignMessage(address: string): Promise<{ message: string; nonce: string }> {
-    return this.request('/auth/sign-message', {
-      method: 'POST',
+  async getSignMessage(
+    address: string,
+  ): Promise<{ message: string; nonce: string }> {
+    return this.request("/auth/sign-message", {
+      method: "POST",
       body: JSON.stringify({ address }),
     });
   }
@@ -103,16 +106,16 @@ class BackendApiService {
     signature: string[];
     message: string;
   }): Promise<{ token: string; refreshToken: string; user: any }> {
-    const result = await this.request<any>('/auth/verify', {
-      method: 'POST',
+    const result = await this.request<any>("/auth/verify", {
+      method: "POST",
       body: JSON.stringify(data),
     });
-    
+
     // Store token automatically
     if (result.token) {
       this.setAuthToken(result.token);
     }
-    
+
     return result;
   }
 
@@ -120,15 +123,15 @@ class BackendApiService {
    * Get current authenticated user
    */
   async getCurrentUser(): Promise<any> {
-    return this.request('/auth/me');
+    return this.request("/auth/me");
   }
 
   /**
    * Refresh access token
    */
   async refreshToken(refreshToken: string): Promise<{ token: string }> {
-    return this.request('/auth/refresh', {
-      method: 'POST',
+    return this.request("/auth/refresh", {
+      method: "POST",
       body: JSON.stringify({ refreshToken }),
     });
   }
@@ -144,8 +147,8 @@ class BackendApiService {
     zkProof: string;
     metadata?: any;
   }): Promise<any> {
-    return this.request('/agents/register', {
-      method: 'POST',
+    return this.request("/agents/register", {
+      method: "POST",
       body: JSON.stringify(data),
     });
   }
@@ -166,7 +169,7 @@ class BackendApiService {
     verified?: boolean;
   }): Promise<any> {
     const query = new URLSearchParams(params as any).toString();
-    return this.request(`/agents${query ? `?${query}` : ''}`);
+    return this.request(`/agents${query ? `?${query}` : ""}`);
   }
 
   /**
@@ -174,7 +177,7 @@ class BackendApiService {
    */
   async revokeAgent(address: string): Promise<any> {
     return this.request(`/agents/${address}`, {
-      method: 'DELETE',
+      method: "DELETE",
     });
   }
 
@@ -188,10 +191,10 @@ class BackendApiService {
       expirationBlocks: number;
       permissions: string[];
       metadata?: any;
-    }
+    },
   ): Promise<any> {
     return this.request(`/agents/${agentAddress}/sessions`, {
-      method: 'POST',
+      method: "POST",
       body: JSON.stringify(data),
     });
   }
@@ -201,7 +204,7 @@ class BackendApiService {
    */
   async listSessions(agentAddress: string, activeOnly = true): Promise<any> {
     return this.request(
-      `/agents/${agentAddress}/sessions?activeOnly=${activeOnly}`
+      `/agents/${agentAddress}/sessions?activeOnly=${activeOnly}`,
     );
   }
 
@@ -219,8 +222,8 @@ class BackendApiService {
     agentAddress: string;
     metadata?: any;
   }): Promise<any> {
-    return this.request('/services/register', {
-      method: 'POST',
+    return this.request("/services/register", {
+      method: "POST",
       body: JSON.stringify(data),
     });
   }
@@ -235,7 +238,7 @@ class BackendApiService {
     limit?: number;
   }): Promise<any> {
     const query = new URLSearchParams(params as any).toString();
-    return this.request(`/services${query ? `?${query}` : ''}`);
+    return this.request(`/services${query ? `?${query}` : ""}`);
   }
 
   /**
@@ -254,10 +257,10 @@ class BackendApiService {
       rating: number;
       comment: string;
       reviewerAddress: string;
-    }
+    },
   ): Promise<any> {
     return this.request(`/services/${serviceId}/reviews`, {
-      method: 'POST',
+      method: "POST",
       body: JSON.stringify(data),
     });
   }
@@ -286,8 +289,8 @@ class BackendApiService {
     amount: string;
     auditorAddress: string;
   }): Promise<any> {
-    return this.request('/auditors/stake', {
-      method: 'POST',
+    return this.request("/auditors/stake", {
+      method: "POST",
       body: JSON.stringify(data),
     });
   }
@@ -299,8 +302,8 @@ class BackendApiService {
     serviceId: string;
     auditorAddress: string;
   }): Promise<any> {
-    return this.request('/auditors/unstake', {
-      method: 'POST',
+    return this.request("/auditors/unstake", {
+      method: "POST",
       body: JSON.stringify(data),
     });
   }

@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import type { NextPage } from 'next';
-import { useState } from 'react';
-import { useAccount } from '@starknet-react/core';
-import { useRouter } from 'next/navigation';
+import type { NextPage } from "next";
+import { useState } from "react";
+import { useAccount } from "@starknet-react/core";
+import { useRouter } from "next/navigation";
 import {
   CheckCircleIcon,
   SparklesIcon,
@@ -11,9 +11,9 @@ import {
   RocketLaunchIcon,
   ShieldCheckIcon,
   BoltIcon,
-} from '@heroicons/react/24/solid';
-import { useAgentPlugins } from '~~/hooks/bitizen/useAgentPlugins';
-import { useAgents } from '~~/hooks/bitizen/useAgents';
+} from "@heroicons/react/24/solid";
+import { useAgentPlugins } from "~~/hooks/bitizen/useAgentPlugins";
+import { useAgents } from "~~/hooks/bitizen/useAgents";
 
 const RegisterAgent: NextPage = () => {
   const { address, isConnected } = useAccount();
@@ -24,12 +24,21 @@ const RegisterAgent: NextPage = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const [zkProofGenerated, setZkProofGenerated] = useState(false);
   const [zkProofGenerating, setZkProofGenerating] = useState(false);
-  const [agentName, setAgentName] = useState('');
-  const [agentDescription, setAgentDescription] = useState('');
+  const [agentName, setAgentName] = useState("");
+  const [agentDescription, setAgentDescription] = useState("");
   const [agentCategory, setAgentCategory] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
 
-  const categories = ['Finance', 'Identity', 'Utilities', 'DeFi', 'Data', 'Creator', 'Gaming', 'Social'];
+  const categories = [
+    "Finance",
+    "Identity",
+    "Utilities",
+    "DeFi",
+    "Data",
+    "Creator",
+    "Gaming",
+    "Social",
+  ];
 
   const handleGenerateZkProof = async () => {
     setZkProofGenerating(true);
@@ -38,7 +47,7 @@ const RegisterAgent: NextPage = () => {
       await new Promise((resolve) => setTimeout(resolve, 3000));
       setZkProofGenerated(true);
     } catch (error) {
-      console.error('ZK proof generation failed:', error);
+      console.error("ZK proof generation failed:", error);
     } finally {
       setZkProofGenerating(false);
     }
@@ -49,11 +58,11 @@ const RegisterAgent: NextPage = () => {
     try {
       // TODO: Call actual registerAgent function
       await new Promise((resolve) => setTimeout(resolve, 2000));
-      
+
       // Show success and redirect
-      router.push('/dashboard');
+      router.push("/dashboard");
     } catch (error) {
-      console.error('Agent registration failed:', error);
+      console.error("Agent registration failed:", error);
     } finally {
       setSubmitting(false);
     }
@@ -69,7 +78,10 @@ const RegisterAgent: NextPage = () => {
 
   const canProceedToStep2 = isConnected;
   const canProceedToStep3 = zkProofGenerated;
-  const canProceedToStep4 = agentName.trim() !== '' && agentDescription.trim() !== '' && agentCategory.length > 0;
+  const canProceedToStep4 =
+    agentName.trim() !== "" &&
+    agentDescription.trim() !== "" &&
+    agentCategory.length > 0;
 
   return (
     <div className="min-h-screen py-8 px-4">
@@ -98,11 +110,15 @@ const RegisterAgent: NextPage = () => {
               <div
                 className={`w-12 h-12 rounded-full flex items-center justify-center mb-2 transition-all ${
                   currentStep >= 1
-                    ? 'gradient-purple text-white shadow-lg'
-                    : 'bg-[var(--bg-dark)] text-[var(--text-muted)]'
+                    ? "gradient-purple text-white shadow-lg"
+                    : "bg-[var(--bg-dark)] text-[var(--text-muted)]"
                 }`}
               >
-                {currentStep > 1 ? <CheckCircleIcon className="w-6 h-6" /> : <BoltIcon className="w-6 h-6" />}
+                {currentStep > 1 ? (
+                  <CheckCircleIcon className="w-6 h-6" />
+                ) : (
+                  <BoltIcon className="w-6 h-6" />
+                )}
               </div>
               <span className="text-xs font-semibold">Connect</span>
             </div>
@@ -112,11 +128,15 @@ const RegisterAgent: NextPage = () => {
               <div
                 className={`w-12 h-12 rounded-full flex items-center justify-center mb-2 transition-all ${
                   currentStep >= 2
-                    ? 'gradient-purple text-white shadow-lg'
-                    : 'bg-[var(--bg-dark)] text-[var(--text-muted)]'
+                    ? "gradient-purple text-white shadow-lg"
+                    : "bg-[var(--bg-dark)] text-[var(--text-muted)]"
                 }`}
               >
-                {currentStep > 2 ? <CheckCircleIcon className="w-6 h-6" /> : <SparklesIcon className="w-6 h-6" />}
+                {currentStep > 2 ? (
+                  <CheckCircleIcon className="w-6 h-6" />
+                ) : (
+                  <SparklesIcon className="w-6 h-6" />
+                )}
               </div>
               <span className="text-xs font-semibold">ZK Proof</span>
             </div>
@@ -126,11 +146,15 @@ const RegisterAgent: NextPage = () => {
               <div
                 className={`w-12 h-12 rounded-full flex items-center justify-center mb-2 transition-all ${
                   currentStep >= 3
-                    ? 'gradient-purple text-white shadow-lg'
-                    : 'bg-[var(--bg-dark)] text-[var(--text-muted)]'
+                    ? "gradient-purple text-white shadow-lg"
+                    : "bg-[var(--bg-dark)] text-[var(--text-muted)]"
                 }`}
               >
-                {currentStep > 3 ? <CheckCircleIcon className="w-6 h-6" /> : <DocumentTextIcon className="w-6 h-6" />}
+                {currentStep > 3 ? (
+                  <CheckCircleIcon className="w-6 h-6" />
+                ) : (
+                  <DocumentTextIcon className="w-6 h-6" />
+                )}
               </div>
               <span className="text-xs font-semibold">Details</span>
             </div>
@@ -140,8 +164,8 @@ const RegisterAgent: NextPage = () => {
               <div
                 className={`w-12 h-12 rounded-full flex items-center justify-center mb-2 transition-all ${
                   currentStep >= 4
-                    ? 'gradient-purple text-white shadow-lg'
-                    : 'bg-[var(--bg-dark)] text-[var(--text-muted)]'
+                    ? "gradient-purple text-white shadow-lg"
+                    : "bg-[var(--bg-dark)] text-[var(--text-muted)]"
                 }`}
               >
                 <RocketLaunchIcon className="w-6 h-6" />
@@ -166,14 +190,18 @@ const RegisterAgent: NextPage = () => {
                   </div>
                   <p className="text-[var(--text-secondary)] mb-2">Address:</p>
                   <p className="font-mono text-sm mb-8">{address}</p>
-                  <button onClick={() => setCurrentStep(2)} className="btn-primary">
+                  <button
+                    onClick={() => setCurrentStep(2)}
+                    className="btn-primary"
+                  >
                     Continue to ZK Proof Generation
                   </button>
                 </>
               ) : (
                 <>
                   <p className="text-[var(--text-secondary)] mb-8 max-w-md mx-auto">
-                    Please connect your Starknet wallet to proceed with agent registration.
+                    Please connect your Starknet wallet to proceed with agent
+                    registration.
                   </p>
                   <p className="text-sm text-[var(--text-muted)]">
                     Use the wallet connect button in the top right corner
@@ -188,38 +216,58 @@ const RegisterAgent: NextPage = () => {
             <div className="text-center py-12">
               <ShieldCheckIcon
                 className={`w-24 h-24 mx-auto mb-6 ${
-                  zkProofGenerated ? 'text-[var(--success)]' : 'text-[var(--accent-purple)]'
+                  zkProofGenerated
+                    ? "text-[var(--success)]"
+                    : "text-[var(--accent-purple)]"
                 }`}
               />
-              <h2 className="text-2xl font-bold mb-4">Generate Zero-Knowledge Proof</h2>
+              <h2 className="text-2xl font-bold mb-4">
+                Generate Zero-Knowledge Proof
+              </h2>
               <p className="text-[var(--text-secondary)] mb-8 max-w-md mx-auto">
-                Generate a ZK proof to verify your agent's identity without revealing sensitive information.
+                Generate a ZK proof to verify your agent's identity without
+                revealing sensitive information.
               </p>
 
               {zkProofGenerating ? (
                 <div className="flex flex-col items-center gap-4">
                   <div className="zk-spinner mx-auto"></div>
-                  <p className="text-[var(--accent-purple)] font-semibold">Generating ZK Proof...</p>
-                  <p className="text-sm text-[var(--text-muted)]">This may take a few moments</p>
+                  <p className="text-[var(--accent-purple)] font-semibold">
+                    Generating ZK Proof...
+                  </p>
+                  <p className="text-sm text-[var(--text-muted)]">
+                    This may take a few moments
+                  </p>
                 </div>
               ) : zkProofGenerated ? (
                 <div>
                   <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[var(--success)]/20 text-[var(--success)] mb-8">
                     <CheckCircleIcon className="w-5 h-5" />
-                    <span className="font-semibold">ZK Proof Generated Successfully</span>
+                    <span className="font-semibold">
+                      ZK Proof Generated Successfully
+                    </span>
                   </div>
                   <div className="flex gap-4 justify-center">
-                    <button onClick={() => setCurrentStep(3)} className="btn-primary">
+                    <button
+                      onClick={() => setCurrentStep(3)}
+                      className="btn-primary"
+                    >
                       Continue to Agent Details
                     </button>
                   </div>
                 </div>
               ) : (
                 <div className="flex gap-4 justify-center">
-                  <button onClick={() => setCurrentStep(1)} className="btn-outline">
+                  <button
+                    onClick={() => setCurrentStep(1)}
+                    className="btn-outline"
+                  >
                     Back
                   </button>
-                  <button onClick={handleGenerateZkProof} className="btn-primary">
+                  <button
+                    onClick={handleGenerateZkProof}
+                    className="btn-primary"
+                  >
                     Generate ZK Proof
                   </button>
                 </div>
@@ -230,12 +278,16 @@ const RegisterAgent: NextPage = () => {
           {/* Step 3: Agent Metadata Form */}
           {currentStep === 3 && (
             <div className="py-6">
-              <h2 className="text-2xl font-bold mb-6 text-center">Agent Details</h2>
+              <h2 className="text-2xl font-bold mb-6 text-center">
+                Agent Details
+              </h2>
 
               <div className="space-y-6 max-w-2xl mx-auto">
                 {/* Agent Name */}
                 <div>
-                  <label className="block text-sm font-semibold mb-2">Agent Name *</label>
+                  <label className="block text-sm font-semibold mb-2">
+                    Agent Name *
+                  </label>
                   <input
                     type="text"
                     placeholder="e.g., My Trading Bot"
@@ -247,7 +299,9 @@ const RegisterAgent: NextPage = () => {
 
                 {/* Agent Description */}
                 <div>
-                  <label className="block text-sm font-semibold mb-2">Description *</label>
+                  <label className="block text-sm font-semibold mb-2">
+                    Description *
+                  </label>
                   <textarea
                     placeholder="Describe what your agent does..."
                     value={agentDescription}
@@ -259,7 +313,9 @@ const RegisterAgent: NextPage = () => {
 
                 {/* Category Multi-Select */}
                 <div>
-                  <label className="block text-sm font-semibold mb-2">Categories * (Select at least one)</label>
+                  <label className="block text-sm font-semibold mb-2">
+                    Categories * (Select at least one)
+                  </label>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     {categories.map((cat) => (
                       <button
@@ -268,8 +324,8 @@ const RegisterAgent: NextPage = () => {
                         onClick={() => toggleCategory(cat)}
                         className={`px-4 py-2 rounded-xl border-2 transition-all ${
                           agentCategory.includes(cat)
-                            ? 'bg-[var(--accent-purple)] border-[var(--accent-purple)] text-white'
-                            : 'bg-[var(--bg-dark)] border-[var(--border-color)] hover:border-[var(--accent-purple)]'
+                            ? "bg-[var(--accent-purple)] border-[var(--accent-purple)] text-white"
+                            : "bg-[var(--bg-dark)] border-[var(--border-color)] hover:border-[var(--accent-purple)]"
                         }`}
                       >
                         {cat}
@@ -280,10 +336,14 @@ const RegisterAgent: NextPage = () => {
 
                 {/* Avatar Upload (Optional) */}
                 <div>
-                  <label className="block text-sm font-semibold mb-2">Avatar (Optional)</label>
+                  <label className="block text-sm font-semibold mb-2">
+                    Avatar (Optional)
+                  </label>
                   <div className="flex items-center gap-4">
                     <div className="w-20 h-20 rounded-2xl bg-[var(--bg-dark)] border-2 border-dashed border-[var(--border-color)] flex items-center justify-center">
-                      <span className="text-[var(--text-muted)] text-xs">No image</span>
+                      <span className="text-[var(--text-muted)] text-xs">
+                        No image
+                      </span>
                     </div>
                     <button className="btn-outline">Upload Image</button>
                   </div>
@@ -291,13 +351,16 @@ const RegisterAgent: NextPage = () => {
               </div>
 
               <div className="flex gap-4 justify-center mt-8">
-                <button onClick={() => setCurrentStep(2)} className="btn-outline">
+                <button
+                  onClick={() => setCurrentStep(2)}
+                  className="btn-outline"
+                >
                   Back
                 </button>
                 <button
                   onClick={() => setCurrentStep(4)}
                   disabled={!canProceedToStep4}
-                  className={`btn-primary ${!canProceedToStep4 ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  className={`btn-primary ${!canProceedToStep4 ? "opacity-50 cursor-not-allowed" : ""}`}
                 >
                   Review & Deploy
                 </button>
@@ -308,34 +371,52 @@ const RegisterAgent: NextPage = () => {
           {/* Step 4: Review & Submit */}
           {currentStep === 4 && (
             <div className="py-6">
-              <h2 className="text-2xl font-bold mb-6 text-center">Review Your Agent</h2>
+              <h2 className="text-2xl font-bold mb-6 text-center">
+                Review Your Agent
+              </h2>
 
               <div className="max-w-2xl mx-auto space-y-6 mb-8">
                 {/* Summary Card */}
                 <div className="p-6 rounded-2xl bg-[var(--bg-hover)] border border-[var(--border-color)]">
                   <div className="space-y-4">
                     <div className="flex justify-between py-2 border-b border-[var(--border-color)]">
-                      <span className="text-[var(--text-secondary)]">Agent Name:</span>
+                      <span className="text-[var(--text-secondary)]">
+                        Agent Name:
+                      </span>
                       <span className="font-semibold">{agentName}</span>
                     </div>
                     <div className="flex justify-between py-2 border-b border-[var(--border-color)]">
-                      <span className="text-[var(--text-secondary)]">Description:</span>
-                      <span className="font-semibold text-right max-w-xs">{agentDescription}</span>
+                      <span className="text-[var(--text-secondary)]">
+                        Description:
+                      </span>
+                      <span className="font-semibold text-right max-w-xs">
+                        {agentDescription}
+                      </span>
                     </div>
                     <div className="flex justify-between py-2 border-b border-[var(--border-color)]">
-                      <span className="text-[var(--text-secondary)]">Categories:</span>
-                      <span className="font-semibold">{agentCategory.join(', ')}</span>
+                      <span className="text-[var(--text-secondary)]">
+                        Categories:
+                      </span>
+                      <span className="font-semibold">
+                        {agentCategory.join(", ")}
+                      </span>
                     </div>
                     <div className="flex justify-between py-2 border-b border-[var(--border-color)]">
-                      <span className="text-[var(--text-secondary)]">ZK Proof:</span>
+                      <span className="text-[var(--text-secondary)]">
+                        ZK Proof:
+                      </span>
                       <span className="inline-flex items-center gap-1 text-[var(--success)]">
                         <CheckCircleIcon className="w-4 h-4" />
                         Verified
                       </span>
                     </div>
                     <div className="flex justify-between py-2">
-                      <span className="text-[var(--text-secondary)]">Wallet:</span>
-                      <span className="font-mono text-sm">{address?.slice(0, 6)}...{address?.slice(-4)}</span>
+                      <span className="text-[var(--text-secondary)]">
+                        Wallet:
+                      </span>
+                      <span className="font-mono text-sm">
+                        {address?.slice(0, 6)}...{address?.slice(-4)}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -343,8 +424,9 @@ const RegisterAgent: NextPage = () => {
                 {/* Important Note */}
                 <div className="p-4 rounded-xl bg-[var(--accent-orange)]/10 border border-[var(--accent-orange)]/30">
                   <p className="text-sm text-[var(--text-secondary)]">
-                    ⚠️ <strong>Important:</strong> By deploying this agent, you confirm that all information is
-                    accurate. The transaction will require your signature and a small gas fee.
+                    ⚠️ <strong>Important:</strong> By deploying this agent, you
+                    confirm that all information is accurate. The transaction
+                    will require your signature and a small gas fee.
                   </p>
                 </div>
               </div>
@@ -352,15 +434,25 @@ const RegisterAgent: NextPage = () => {
               {submitting ? (
                 <div className="flex flex-col items-center gap-4">
                   <div className="zk-spinner mx-auto"></div>
-                  <p className="text-[var(--accent-purple)] font-semibold">Deploying Your Agent...</p>
-                  <p className="text-sm text-[var(--text-muted)]">Please confirm the transaction in your wallet</p>
+                  <p className="text-[var(--accent-purple)] font-semibold">
+                    Deploying Your Agent...
+                  </p>
+                  <p className="text-sm text-[var(--text-muted)]">
+                    Please confirm the transaction in your wallet
+                  </p>
                 </div>
               ) : (
                 <div className="flex gap-4 justify-center">
-                  <button onClick={() => setCurrentStep(3)} className="btn-outline">
+                  <button
+                    onClick={() => setCurrentStep(3)}
+                    className="btn-outline"
+                  >
                     Back to Edit
                   </button>
-                  <button onClick={handleSubmit} className="btn-primary inline-flex items-center gap-2">
+                  <button
+                    onClick={handleSubmit}
+                    className="btn-primary inline-flex items-center gap-2"
+                  >
                     <RocketLaunchIcon className="w-5 h-5" />
                     Deploy Agent
                   </button>

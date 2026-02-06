@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import Link from 'next/link';
-import { useAccount, useConnect, useDisconnect } from '@starknet-react/core';
-import { useBackendAuth } from '~~/hooks/bitizen/useBackendAuth';
+import { useState } from "react";
+import Link from "next/link";
+import { useAccount, useConnect, useDisconnect } from "@starknet-react/core";
+import { useBackendAuth } from "~~/hooks/bitizen/useBackendAuth";
 
 export const Navbar = () => {
   const { address, isConnected } = useAccount();

@@ -3,10 +3,10 @@
  * Integration with AI agent plugins (Bitcoin, ZKProof, Account)
  */
 
-import { useState, useEffect, useCallback } from 'react';
-import { useAccount } from '@starknet-react/core';
-import { pluginService } from '~~/services/api/pluginService';
-import type { ActionResult } from '~~/services/api/pluginTypes';
+import { useState, useEffect, useCallback } from "react";
+import { useAccount } from "@starknet-react/core";
+import { pluginService } from "~~/services/api/pluginService";
+import type { ActionResult } from "~~/services/api/pluginTypes";
 
 export const useAgentPlugins = () => {
   const { address } = useAccount();
@@ -17,7 +17,7 @@ export const useAgentPlugins = () => {
     if (address) {
       pluginService.initializeContext(
         address,
-        process.env.NEXT_PUBLIC_STARKNET_NETWORK || 'sepolia'
+        process.env.NEXT_PUBLIC_STARKNET_NETWORK || "sepolia",
       );
       setIsInitialized(true);
     } else {
@@ -28,22 +28,26 @@ export const useAgentPlugins = () => {
   // ==================== BITCOIN PLUGIN ====================
 
   const getBitcoinQuote = useCallback(
-    async (fromCurrency: 'BTC' | 'STRK', toCurrency: 'BTC' | 'STRK', amount: string) => {
+    async (
+      fromCurrency: "BTC" | "STRK",
+      toCurrency: "BTC" | "STRK",
+      amount: string,
+    ) => {
       return pluginService.getBitcoinSwapQuote({
         fromCurrency,
         toCurrency,
         amount,
       });
     },
-    []
+    [],
   );
 
   const executeBitcoinSwap = useCallback(
     async (
-      fromCurrency: 'BTC' | 'STRK',
-      toCurrency: 'BTC' | 'STRK',
+      fromCurrency: "BTC" | "STRK",
+      toCurrency: "BTC" | "STRK",
       amount: string,
-      destinationAddress: string
+      destinationAddress: string,
     ) => {
       return pluginService.executeBitcoinSwap({
         fromCurrency,
@@ -52,7 +56,7 @@ export const useAgentPlugins = () => {
         destinationAddress,
       });
     },
-    []
+    [],
   );
 
   const getBitcoinSwapStatus = useCallback(async (swapId: string) => {
@@ -67,14 +71,14 @@ export const useAgentPlugins = () => {
 
   const generateZKProof = useCallback(
     async (publicKey: string, metadata?: any) => {
-      if (!address) throw new Error('Wallet not connected');
+      if (!address) throw new Error("Wallet not connected");
       return pluginService.generateZKProof({
         agentAddress: address,
         publicKey,
         metadata,
       });
     },
-    [address]
+    [address],
   );
 
   const verifyZKProof = useCallback(async (proof: string) => {
@@ -95,7 +99,7 @@ export const useAgentPlugins = () => {
         metadata,
       });
     },
-    []
+    [],
   );
 
   const revokeSessionKey = useCallback(async (sessionId: string) => {
@@ -114,7 +118,7 @@ export const useAgentPlugins = () => {
         parameters,
       });
     },
-    []
+    [],
   );
 
   const setSpendingLimits = useCallback(
@@ -124,7 +128,7 @@ export const useAgentPlugins = () => {
         transactionLimit,
       });
     },
-    []
+    [],
   );
 
   return {

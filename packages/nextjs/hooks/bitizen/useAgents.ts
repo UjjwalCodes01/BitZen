@@ -3,9 +3,9 @@
  * Interact with BitZen agent endpoints
  */
 
-import { useState, useCallback } from 'react';
-import { backendApi } from '~~/services/api/backendApi';
-import { useAccount } from '@starknet-react/core';
+import { useState, useCallback } from "react";
+import { backendApi } from "~~/services/api/backendApi";
+import { useAccount } from "@starknet-react/core";
 
 export const useAgents = () => {
   const { address } = useAccount();
@@ -17,7 +17,7 @@ export const useAgents = () => {
    */
   const registerAgent = useCallback(
     async (publicKey: string, zkProof: string, metadata?: any) => {
-      if (!address) throw new Error('Wallet not connected');
+      if (!address) throw new Error("Wallet not connected");
 
       setIsLoading(true);
       setError(null);
@@ -37,7 +37,7 @@ export const useAgents = () => {
         setIsLoading(false);
       }
     },
-    [address]
+    [address],
   );
 
   /**
@@ -76,29 +76,26 @@ export const useAgents = () => {
         setIsLoading(false);
       }
     },
-    []
+    [],
   );
 
   /**
    * Revoke an agent
    */
-  const revokeAgent = useCallback(
-    async (agentAddress: string) => {
-      setIsLoading(true);
-      setError(null);
+  const revokeAgent = useCallback(async (agentAddress: string) => {
+    setIsLoading(true);
+    setError(null);
 
-      try {
-        const result = await backendApi.revokeAgent(agentAddress);
-        return result;
-      } catch (err: any) {
-        setError(err.message);
-        throw err;
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    []
-  );
+    try {
+      const result = await backendApi.revokeAgent(agentAddress);
+      return result;
+    } catch (err: any) {
+      setError(err.message);
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
   /**
    * Create session key
@@ -111,7 +108,7 @@ export const useAgents = () => {
         expirationBlocks: number;
         permissions: string[];
         metadata?: any;
-      }
+      },
     ) => {
       setIsLoading(true);
       setError(null);
@@ -126,7 +123,7 @@ export const useAgents = () => {
         setIsLoading(false);
       }
     },
-    []
+    [],
   );
 
   /**
@@ -147,7 +144,7 @@ export const useAgents = () => {
         setIsLoading(false);
       }
     },
-    []
+    [],
   );
 
   return {

@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import type { NextPage } from 'next';
-import { useState } from 'react';
-import { useAccount } from '@starknet-react/core';
+import type { NextPage } from "next";
+import { useState } from "react";
+import { useAccount } from "@starknet-react/core";
 import {
   KeyIcon,
   PlusIcon,
@@ -13,8 +13,8 @@ import {
   CurrencyDollarIcon,
   XMarkIcon,
   CheckCircleIcon,
-} from '@heroicons/react/24/solid';
-import { useAgentPlugins } from '~~/hooks/bitizen/useAgentPlugins';
+} from "@heroicons/react/24/solid";
+import { useAgentPlugins } from "~~/hooks/bitizen/useAgentPlugins";
 
 interface SessionKey {
   id: string;
@@ -25,7 +25,7 @@ interface SessionKey {
   permissions: string[];
   actionsUsed: number;
   actionsLimit: number;
-  status: 'active' | 'expiring' | 'expired';
+  status: "active" | "expiring" | "expired";
 }
 
 const Sessions: NextPage = () => {
@@ -35,58 +35,60 @@ const Sessions: NextPage = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showLimitsModal, setShowLimitsModal] = useState(false);
-  const [selectedSession, setSelectedSession] = useState<SessionKey | null>(null);
-  const [sortBy, setSortBy] = useState<'created' | 'expires'>('created');
+  const [selectedSession, setSelectedSession] = useState<SessionKey | null>(
+    null,
+  );
+  const [sortBy, setSortBy] = useState<"created" | "expires">("created");
 
   // Form states
   const [expirationDays, setExpirationDays] = useState(7);
   const [selectedPermissions, setSelectedPermissions] = useState<string[]>([]);
-  const [dailyLimit, setDailyLimit] = useState('10');
-  const [weeklyLimit, setWeeklyLimit] = useState('50');
-  const [totalLimit, setTotalLimit] = useState('200');
+  const [dailyLimit, setDailyLimit] = useState("10");
+  const [weeklyLimit, setWeeklyLimit] = useState("50");
+  const [totalLimit, setTotalLimit] = useState("200");
 
   // Mock session keys data
   const [sessions, setSessions] = useState<SessionKey[]>([
     {
-      id: '0x1a2b3c4d',
-      address: '0x1a2b3c4d5e6f7g8h9i0j1k2l3m4n5o6p',
-      created: 'Jan 20, 2026',
-      expires: 'Feb 2, 2026',
+      id: "0x1a2b3c4d",
+      address: "0x1a2b3c4d5e6f7g8h9i0j1k2l3m4n5o6p",
+      created: "Jan 20, 2026",
+      expires: "Feb 2, 2026",
       daysLeft: 12,
-      permissions: ['transfer', 'swap', 'stake'],
+      permissions: ["transfer", "swap", "stake"],
       actionsUsed: 45,
       actionsLimit: 100,
-      status: 'active',
+      status: "active",
     },
     {
-      id: '0x5e6f7g8h',
-      address: '0x5e6f7g8h9i0j1k2l3m4n5o6p7q8r9s0t',
-      created: 'Jan 15, 2026',
-      expires: 'Feb 10, 2026',
+      id: "0x5e6f7g8h",
+      address: "0x5e6f7g8h9i0j1k2l3m4n5o6p7q8r9s0t",
+      created: "Jan 15, 2026",
+      expires: "Feb 10, 2026",
       daysLeft: 25,
-      permissions: ['transfer', 'vote'],
+      permissions: ["transfer", "vote"],
       actionsUsed: 12,
       actionsLimit: 50,
-      status: 'active',
+      status: "active",
     },
     {
-      id: '0x9i0j1k2l',
-      address: '0x9i0j1k2l3m4n5o6p7q8r9s0t1u2v3w4x',
-      created: 'Jan 25, 2026',
-      expires: 'Jan 28, 2026',
+      id: "0x9i0j1k2l",
+      address: "0x9i0j1k2l3m4n5o6p7q8r9s0t1u2v3w4x",
+      created: "Jan 25, 2026",
+      expires: "Jan 28, 2026",
       daysLeft: 3,
-      permissions: ['transfer', 'swap'],
+      permissions: ["transfer", "swap"],
       actionsUsed: 78,
       actionsLimit: 100,
-      status: 'expiring',
+      status: "expiring",
     },
   ]);
 
   const availablePermissions = [
-    { id: 'transfer', name: 'Transfer Tokens', icon: CurrencyDollarIcon },
-    { id: 'swap', name: 'Execute Swaps', icon: CurrencyDollarIcon },
-    { id: 'stake', name: 'Stake Tokens', icon: ShieldCheckIcon },
-    { id: 'vote', name: 'Vote on Proposals', icon: CheckCircleIcon },
+    { id: "transfer", name: "Transfer Tokens", icon: CurrencyDollarIcon },
+    { id: "swap", name: "Execute Swaps", icon: CurrencyDollarIcon },
+    { id: "stake", name: "Stake Tokens", icon: ShieldCheckIcon },
+    { id: "vote", name: "Vote on Proposals", icon: CheckCircleIcon },
   ];
 
   const togglePermission = (permId: string) => {
@@ -102,13 +104,13 @@ const Sessions: NextPage = () => {
     const newSession: SessionKey = {
       id: `0x${Math.random().toString(16).slice(2, 10)}`,
       address: `0x${Math.random().toString(16).slice(2, 34)}`,
-      created: 'Just now',
+      created: "Just now",
       expires: `${expirationDays} days from now`,
       daysLeft: expirationDays,
       permissions: selectedPermissions,
       actionsUsed: 0,
       actionsLimit: Number(totalLimit),
-      status: 'active',
+      status: "active",
     };
     setSessions([newSession, ...sessions]);
     setShowCreateModal(false);
@@ -117,13 +119,13 @@ const Sessions: NextPage = () => {
   };
 
   const handleRevokeSession = (sessionId: string) => {
-    if (confirm('Are you sure you want to revoke this session key?')) {
+    if (confirm("Are you sure you want to revoke this session key?")) {
       setSessions(sessions.filter((s) => s.id !== sessionId));
     }
   };
 
   const sortedSessions = [...sessions].sort((a, b) => {
-    if (sortBy === 'created') {
+    if (sortBy === "created") {
       return b.id.localeCompare(a.id);
     } else {
       return a.daysLeft - b.daysLeft;
@@ -145,7 +147,7 @@ const Sessions: NextPage = () => {
             onClick={() => setShowCreateModal(true)}
             disabled={!isConnected}
             className={`btn-primary inline-flex items-center gap-2 ${
-              !isConnected ? 'opacity-50 cursor-not-allowed' : ''
+              !isConnected ? "opacity-50 cursor-not-allowed" : ""
             }`}
           >
             <PlusIcon className="w-5 h-5" />
@@ -167,15 +169,21 @@ const Sessions: NextPage = () => {
             <div className="grid lg:grid-cols-3 gap-6 mb-8">
               {/* Active Sessions Count */}
               <div className="card border-2 border-[var(--accent-purple)]/30">
-                <h3 className="text-sm text-[var(--text-secondary)] mb-2">ACTIVE SESSIONS</h3>
-                <div className="text-3xl font-bold text-[var(--accent-purple)]">{sessions.length}</div>
+                <h3 className="text-sm text-[var(--text-secondary)] mb-2">
+                  ACTIVE SESSIONS
+                </h3>
+                <div className="text-3xl font-bold text-[var(--accent-purple)]">
+                  {sessions.length}
+                </div>
               </div>
 
               {/* Spending Limits */}
               <div className="card border-2 border-[var(--accent-orange)]/30">
                 <div className="flex items-start justify-between mb-2">
                   <div>
-                    <h3 className="text-sm text-[var(--text-secondary)] mb-2">SPENDING LIMITS</h3>
+                    <h3 className="text-sm text-[var(--text-secondary)] mb-2">
+                      SPENDING LIMITS
+                    </h3>
                     <div className="text-lg font-bold text-[var(--accent-orange)]">
                       {dailyLimit} STRK / day
                     </div>
@@ -191,7 +199,9 @@ const Sessions: NextPage = () => {
 
               {/* Total Actions */}
               <div className="card border-2 border-[var(--success)]/30">
-                <h3 className="text-sm text-[var(--text-secondary)] mb-2">TOTAL ACTIONS</h3>
+                <h3 className="text-sm text-[var(--text-secondary)] mb-2">
+                  TOTAL ACTIONS
+                </h3>
                 <div className="text-3xl font-bold text-[var(--success)]">
                   {sessions.reduce((sum, s) => sum + s.actionsUsed, 0)}
                 </div>
@@ -204,7 +214,9 @@ const Sessions: NextPage = () => {
                 <h2 className="text-2xl font-bold">YOUR SESSION KEYS</h2>
                 <select
                   value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value as 'created' | 'expires')}
+                  onChange={(e) =>
+                    setSortBy(e.target.value as "created" | "expires")
+                  }
                   className="px-4 py-2 bg-[var(--bg-dark)] border border-[var(--border-color)] rounded-xl focus:outline-none focus:border-[var(--accent-purple)] transition-colors text-[var(--text-primary)] cursor-pointer"
                 >
                   <option value="created">Sort by Created</option>
@@ -249,10 +261,14 @@ const Sessions: NextPage = () => {
                           <td className="py-4 px-4">
                             <div className="flex items-center gap-2">
                               <KeyIcon className="w-4 h-4 text-[var(--accent-purple)]" />
-                              <span className="font-mono text-sm">{session.id}</span>
+                              <span className="font-mono text-sm">
+                                {session.id}
+                              </span>
                             </div>
                           </td>
-                          <td className="py-4 px-4 text-sm">{session.created}</td>
+                          <td className="py-4 px-4 text-sm">
+                            {session.created}
+                          </td>
                           <td className="py-4 px-4">
                             <div className="flex items-center gap-2 text-sm">
                               <ClockIcon className="w-4 h-4 text-[var(--text-muted)]" />
@@ -262,7 +278,10 @@ const Sessions: NextPage = () => {
                           <td className="py-4 px-4">
                             <div className="flex flex-wrap gap-1">
                               {session.permissions.map((perm) => (
-                                <span key={perm} className="badge badge-purple text-xs">
+                                <span
+                                  key={perm}
+                                  className="badge badge-purple text-xs"
+                                >
                                   {perm}
                                 </span>
                               ))}
@@ -286,11 +305,11 @@ const Sessions: NextPage = () => {
                           <td className="py-4 px-4">
                             <span
                               className={`badge text-xs ${
-                                session.status === 'active'
-                                  ? 'badge-success agent-live'
-                                  : session.status === 'expiring'
-                                  ? 'badge-orange'
-                                  : 'bg-[var(--text-muted)]/20 text-[var(--text-muted)]'
+                                session.status === "active"
+                                  ? "badge-success agent-live"
+                                  : session.status === "expiring"
+                                    ? "badge-orange"
+                                    : "bg-[var(--text-muted)]/20 text-[var(--text-muted)]"
                               }`}
                             >
                               {session.status}
@@ -328,9 +347,13 @@ const Sessions: NextPage = () => {
                   <KeyIcon className="w-24 h-24 text-[var(--text-muted)] mx-auto mb-6 opacity-50" />
                   <h3 className="text-2xl font-bold mb-4">No Session Keys</h3>
                   <p className="text-[var(--text-secondary)] mb-8 max-w-md mx-auto">
-                    Create your first session key to enable autonomous agent operations.
+                    Create your first session key to enable autonomous agent
+                    operations.
                   </p>
-                  <button onClick={() => setShowCreateModal(true)} className="btn-primary">
+                  <button
+                    onClick={() => setShowCreateModal(true)}
+                    className="btn-primary"
+                  >
                     Create Session Key
                   </button>
                 </div>
@@ -339,7 +362,9 @@ const Sessions: NextPage = () => {
 
             {/* Session Keys Explanation */}
             <div className="card mt-8">
-              <h3 className="text-2xl font-bold mb-4">What are Session Keys?</h3>
+              <h3 className="text-2xl font-bold mb-4">
+                What are Session Keys?
+              </h3>
               <div className="grid md:grid-cols-3 gap-6">
                 <div>
                   <div className="w-12 h-12 rounded-full gradient-purple flex items-center justify-center mb-3">
@@ -347,7 +372,8 @@ const Sessions: NextPage = () => {
                   </div>
                   <h4 className="font-bold mb-2">Autonomous Operations</h4>
                   <p className="text-sm text-[var(--text-secondary)]">
-                    Allow your agent to perform actions without requiring manual signatures each time.
+                    Allow your agent to perform actions without requiring manual
+                    signatures each time.
                   </p>
                 </div>
 
@@ -357,7 +383,8 @@ const Sessions: NextPage = () => {
                   </div>
                   <h4 className="font-bold mb-2">Security First</h4>
                   <p className="text-sm text-[var(--text-secondary)]">
-                    Set permissions, spending limits, and expiration dates to maintain full control.
+                    Set permissions, spending limits, and expiration dates to
+                    maintain full control.
                   </p>
                 </div>
 
@@ -367,7 +394,8 @@ const Sessions: NextPage = () => {
                   </div>
                   <h4 className="font-bold mb-2">Time-Limited</h4>
                   <p className="text-sm text-[var(--text-secondary)]">
-                    Sessions automatically expire after your chosen duration (1-30 days).
+                    Sessions automatically expire after your chosen duration
+                    (1-30 days).
                   </p>
                 </div>
               </div>
@@ -411,7 +439,9 @@ const Sessions: NextPage = () => {
 
                 {/* Permissions Checkboxes */}
                 <div>
-                  <label className="block text-sm font-semibold mb-3">Permissions</label>
+                  <label className="block text-sm font-semibold mb-3">
+                    Permissions
+                  </label>
                   <div className="grid grid-cols-2 gap-3">
                     {availablePermissions.map((perm) => {
                       const IconComponent = perm.icon;
@@ -420,8 +450,8 @@ const Sessions: NextPage = () => {
                           key={perm.id}
                           className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${
                             selectedPermissions.includes(perm.id)
-                              ? 'bg-[var(--accent-purple)]/10 border-[var(--accent-purple)]'
-                              : 'bg-[var(--bg-hover)] border-[var(--border-color)] hover:border-[var(--accent-purple)]/50'
+                              ? "bg-[var(--accent-purple)]/10 border-[var(--accent-purple)]"
+                              : "bg-[var(--bg-hover)] border-[var(--border-color)] hover:border-[var(--accent-purple)]/50"
                           }`}
                         >
                           <input
@@ -431,7 +461,9 @@ const Sessions: NextPage = () => {
                             className="w-5 h-5 rounded cursor-pointer accent-[var(--accent-purple)]"
                           />
                           <IconComponent className="w-5 h-5 text-[var(--accent-purple)]" />
-                          <span className="text-sm font-semibold">{perm.name}</span>
+                          <span className="text-sm font-semibold">
+                            {perm.name}
+                          </span>
                         </label>
                       );
                     })}
@@ -440,10 +472,14 @@ const Sessions: NextPage = () => {
 
                 {/* Spending Limits */}
                 <div>
-                  <label className="block text-sm font-semibold mb-3">Spending Limits (STRK)</label>
+                  <label className="block text-sm font-semibold mb-3">
+                    Spending Limits (STRK)
+                  </label>
                   <div className="grid grid-cols-3 gap-4">
                     <div>
-                      <label className="block text-xs text-[var(--text-secondary)] mb-1">Daily</label>
+                      <label className="block text-xs text-[var(--text-secondary)] mb-1">
+                        Daily
+                      </label>
                       <input
                         type="number"
                         value={dailyLimit}
@@ -452,7 +488,9 @@ const Sessions: NextPage = () => {
                       />
                     </div>
                     <div>
-                      <label className="block text-xs text-[var(--text-secondary)] mb-1">Weekly</label>
+                      <label className="block text-xs text-[var(--text-secondary)] mb-1">
+                        Weekly
+                      </label>
                       <input
                         type="number"
                         value={weeklyLimit}
@@ -461,7 +499,9 @@ const Sessions: NextPage = () => {
                       />
                     </div>
                     <div>
-                      <label className="block text-xs text-[var(--text-secondary)] mb-1">Total</label>
+                      <label className="block text-xs text-[var(--text-secondary)] mb-1">
+                        Total
+                      </label>
                       <input
                         type="number"
                         value={totalLimit}
@@ -474,14 +514,19 @@ const Sessions: NextPage = () => {
               </div>
 
               <div className="flex gap-4 mt-8">
-                <button onClick={() => setShowCreateModal(false)} className="btn-outline flex-1">
+                <button
+                  onClick={() => setShowCreateModal(false)}
+                  className="btn-outline flex-1"
+                >
                   Cancel
                 </button>
                 <button
                   onClick={handleCreateSession}
                   disabled={selectedPermissions.length === 0}
                   className={`btn-primary flex-1 ${
-                    selectedPermissions.length === 0 ? 'opacity-50 cursor-not-allowed' : ''
+                    selectedPermissions.length === 0
+                      ? "opacity-50 cursor-not-allowed"
+                      : ""
                   }`}
                 >
                   Create Session
@@ -507,12 +552,16 @@ const Sessions: NextPage = () => {
 
               <div className="space-y-4">
                 <div className="flex justify-between py-3 border-b border-[var(--border-color)]">
-                  <span className="text-[var(--text-secondary)]">Session ID:</span>
+                  <span className="text-[var(--text-secondary)]">
+                    Session ID:
+                  </span>
                   <span className="font-mono">{selectedSession.id}</span>
                 </div>
                 <div className="flex justify-between py-3 border-b border-[var(--border-color)]">
                   <span className="text-[var(--text-secondary)]">Address:</span>
-                  <span className="font-mono text-sm">{selectedSession.address.slice(0, 20)}...</span>
+                  <span className="font-mono text-sm">
+                    {selectedSession.address.slice(0, 20)}...
+                  </span>
                 </div>
                 <div className="flex justify-between py-3 border-b border-[var(--border-color)]">
                   <span className="text-[var(--text-secondary)]">Created:</span>
@@ -523,7 +572,9 @@ const Sessions: NextPage = () => {
                   <span>{selectedSession.expires}</span>
                 </div>
                 <div className="flex justify-between py-3 border-b border-[var(--border-color)]">
-                  <span className="text-[var(--text-secondary)]">Permissions:</span>
+                  <span className="text-[var(--text-secondary)]">
+                    Permissions:
+                  </span>
                   <div className="flex gap-2">
                     {selectedSession.permissions.map((perm) => (
                       <span key={perm} className="badge badge-purple text-xs">
@@ -533,14 +584,20 @@ const Sessions: NextPage = () => {
                   </div>
                 </div>
                 <div className="flex justify-between py-3">
-                  <span className="text-[var(--text-secondary)]">Actions Used:</span>
+                  <span className="text-[var(--text-secondary)]">
+                    Actions Used:
+                  </span>
                   <span className="font-bold">
-                    {selectedSession.actionsUsed} / {selectedSession.actionsLimit}
+                    {selectedSession.actionsUsed} /{" "}
+                    {selectedSession.actionsLimit}
                   </span>
                 </div>
               </div>
 
-              <button onClick={() => setShowDetailsModal(false)} className="btn-outline w-full mt-8">
+              <button
+                onClick={() => setShowDetailsModal(false)}
+                className="btn-outline w-full mt-8"
+              >
                 Close
               </button>
             </div>
@@ -563,7 +620,9 @@ const Sessions: NextPage = () => {
 
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-semibold mb-2">Daily Limit (STRK)</label>
+                  <label className="block text-sm font-semibold mb-2">
+                    Daily Limit (STRK)
+                  </label>
                   <input
                     type="number"
                     value={dailyLimit}
@@ -572,7 +631,9 @@ const Sessions: NextPage = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold mb-2">Weekly Limit (STRK)</label>
+                  <label className="block text-sm font-semibold mb-2">
+                    Weekly Limit (STRK)
+                  </label>
                   <input
                     type="number"
                     value={weeklyLimit}
@@ -581,7 +642,9 @@ const Sessions: NextPage = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold mb-2">Total Limit (STRK)</label>
+                  <label className="block text-sm font-semibold mb-2">
+                    Total Limit (STRK)
+                  </label>
                   <input
                     type="number"
                     value={totalLimit}
@@ -592,10 +655,16 @@ const Sessions: NextPage = () => {
               </div>
 
               <div className="flex gap-4 mt-8">
-                <button onClick={() => setShowLimitsModal(false)} className="btn-outline flex-1">
+                <button
+                  onClick={() => setShowLimitsModal(false)}
+                  className="btn-outline flex-1"
+                >
                   Cancel
                 </button>
-                <button onClick={() => setShowLimitsModal(false)} className="btn-primary flex-1">
+                <button
+                  onClick={() => setShowLimitsModal(false)}
+                  className="btn-primary flex-1"
+                >
                   Update Limits
                 </button>
               </div>

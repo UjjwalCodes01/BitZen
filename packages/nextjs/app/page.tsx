@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import type { NextPage } from 'next';
-import Link from 'next/link';
-import { useAccount } from '@starknet-react/core';
+import type { NextPage } from "next";
+import Link from "next/link";
+import { useAccount } from "@starknet-react/core";
 import {
   CpuChipIcon,
   BoltIcon,
@@ -15,51 +15,51 @@ import {
   PaintBrushIcon,
   ShieldCheckIcon,
   SparklesIcon,
-} from '@heroicons/react/24/solid';
+} from "@heroicons/react/24/solid";
 
 const Home: NextPage = () => {
   const { isConnected } = useAccount();
 
   // Mock data for featured agents/services
   const featuredAgents = [
-    { 
-      name: 'ZK Passport Agent', 
-      category: 'Identity', 
-      badge: 'Gold Verified', 
-      icon: LockClosedIcon 
+    {
+      name: "ZK Passport Agent",
+      category: "Identity",
+      badge: "Gold Verified",
+      icon: LockClosedIcon,
     },
-    { 
-      name: 'Bitcoin Swap Bot', 
-      category: 'Finance', 
-      badge: 'Silver Verified', 
-      icon: CurrencyDollarIcon 
+    {
+      name: "Bitcoin Swap Bot",
+      category: "Finance",
+      badge: "Silver Verified",
+      icon: CurrencyDollarIcon,
     },
-    { 
-      name: 'Session Manager', 
-      category: 'Utilities', 
-      badge: 'Community Tier', 
-      icon: BoltIcon 
+    {
+      name: "Session Manager",
+      category: "Utilities",
+      badge: "Community Tier",
+      icon: BoltIcon,
     },
   ];
 
   const newReleases = [
-    { 
-      name: 'Oracle Agent', 
-      category: 'Data & Oracles', 
-      badge: 'Community Tier', 
-      icon: ChartBarIcon 
+    {
+      name: "Oracle Agent",
+      category: "Data & Oracles",
+      badge: "Community Tier",
+      icon: ChartBarIcon,
     },
-    { 
-      name: 'DeFi Arbitrage Bot', 
-      category: 'Finance', 
-      badge: 'Silver Verified', 
-      icon: CurrencyDollarIcon 
+    {
+      name: "DeFi Arbitrage Bot",
+      category: "Finance",
+      badge: "Silver Verified",
+      icon: CurrencyDollarIcon,
     },
-    { 
-      name: 'NFT Minter Agent', 
-      category: 'Creator Tools', 
-      badge: 'Community Tier', 
-      icon: PaintBrushIcon 
+    {
+      name: "NFT Minter Agent",
+      category: "Creator Tools",
+      badge: "Community Tier",
+      icon: PaintBrushIcon,
     },
   ];
 
@@ -68,7 +68,9 @@ const Home: NextPage = () => {
       {/* Welcome Header */}
       <section className="py-6 px-4">
         <div className="container mx-auto max-w-7xl">
-          <h1 className="text-3xl font-bold">WELCOME {isConnected ? 'AGENT' : 'GUEST'}</h1>
+          <h1 className="text-3xl font-bold">
+            WELCOME {isConnected ? "AGENT" : "GUEST"}
+          </h1>
         </div>
       </section>
 
@@ -101,7 +103,8 @@ const Home: NextPage = () => {
                 </h2>
 
                 <p className="text-lg text-[var(--text-secondary)] mb-6">
-                  Deploy AI agents on Starknet. Upgrade with Bitcoin liquidity, protect with ZK proofs, and automate with session keys.
+                  Deploy AI agents on Starknet. Upgrade with Bitcoin liquidity,
+                  protect with ZK proofs, and automate with session keys.
                 </p>
 
                 <div className="flex flex-wrap gap-3 mb-8">
@@ -120,7 +123,10 @@ const Home: NextPage = () => {
                 </div>
 
                 <div className="flex gap-4">
-                  <Link href="/agents/register" className="btn-primary inline-flex items-center gap-2">
+                  <Link
+                    href="/agents/register"
+                    className="btn-primary inline-flex items-center gap-2"
+                  >
                     <BoltIcon className="w-5 h-5" />
                     Deploy Now
                   </Link>
@@ -139,7 +145,10 @@ const Home: NextPage = () => {
         <div className="container mx-auto max-w-7xl">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-2xl font-bold">FEATURED AGENTS</h2>
-            <Link href="/marketplace" className="text-[var(--accent-purple)] hover:underline">
+            <Link
+              href="/marketplace"
+              className="text-[var(--accent-purple)] hover:underline"
+            >
               View All →
             </Link>
           </div>
@@ -148,26 +157,40 @@ const Home: NextPage = () => {
             {featuredAgents.map((agent, idx) => {
               const IconComponent = agent.icon;
               return (
-                <div key={idx} className="card hover:border-[var(--accent-purple)] cursor-pointer group">
+                <div
+                  key={idx}
+                  className="card hover:border-[var(--accent-purple)] cursor-pointer group"
+                >
                   <div className="flex flex-col h-full gap-4">
                     <div className="flex items-center gap-4">
                       <div className="w-16 h-16 rounded-2xl gradient-purple flex items-center justify-center group-hover:scale-110 transition-transform shadow-lg flex-shrink-0">
                         <IconComponent className="w-8 h-8 text-white" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h3 className="font-bold text-lg truncate">{agent.name}</h3>
-                        <p className="text-sm text-[var(--text-secondary)] truncate">{agent.category}</p>
+                        <h3 className="font-bold text-lg truncate">
+                          {agent.name}
+                        </h3>
+                        <p className="text-sm text-[var(--text-secondary)] truncate">
+                          {agent.category}
+                        </p>
                       </div>
                     </div>
                     <div className="flex items-center justify-between gap-3 mt-auto">
-                      <span className={`badge whitespace-nowrap ${
-                        agent.badge.includes('Gold') ? 'badge-orange' : 
-                        agent.badge.includes('Silver') ? 'badge-purple' : 
-                        'badge-success'
-                      }`}>
+                      <span
+                        className={`badge whitespace-nowrap ${
+                          agent.badge.includes("Gold")
+                            ? "badge-orange"
+                            : agent.badge.includes("Silver")
+                              ? "badge-purple"
+                              : "badge-success"
+                        }`}
+                      >
                         {agent.badge}
                       </span>
-                      <Link href="/marketplace" className="text-sm text-[var(--accent-purple)] hover:underline font-semibold whitespace-nowrap">
+                      <Link
+                        href="/marketplace"
+                        className="text-sm text-[var(--accent-purple)] hover:underline font-semibold whitespace-nowrap"
+                      >
                         Details →
                       </Link>
                     </div>
@@ -185,32 +208,52 @@ const Home: NextPage = () => {
           <h2 className="text-2xl font-bold mb-6">EXPLORE BY CATEGORY</h2>
 
           <div className="grid md:grid-cols-4 gap-4">
-            <Link href="/marketplace?category=finance" className="card hover:border-[var(--accent-orange)] text-center group cursor-pointer">
+            <Link
+              href="/marketplace?category=finance"
+              className="card hover:border-[var(--accent-orange)] text-center group cursor-pointer"
+            >
               <div className="flex justify-center mb-3">
                 <CurrencyDollarIcon className="w-16 h-16 text-[var(--accent-orange)] group-hover:scale-110 transition-transform" />
               </div>
-              <h3 className="font-bold group-hover:text-[var(--accent-orange)] transition-colors">FINANCE</h3>
+              <h3 className="font-bold group-hover:text-[var(--accent-orange)] transition-colors">
+                FINANCE
+              </h3>
             </Link>
 
-            <Link href="/marketplace?category=utilities" className="card hover:border-[var(--accent-purple)] text-center group cursor-pointer">
+            <Link
+              href="/marketplace?category=utilities"
+              className="card hover:border-[var(--accent-purple)] text-center group cursor-pointer"
+            >
               <div className="flex justify-center mb-3">
                 <CogIcon className="w-16 h-16 text-[var(--accent-purple)] group-hover:scale-110 transition-transform" />
               </div>
-              <h3 className="font-bold group-hover:text-[var(--accent-purple)] transition-colors">UTILITIES</h3>
+              <h3 className="font-bold group-hover:text-[var(--accent-purple)] transition-colors">
+                UTILITIES
+              </h3>
             </Link>
 
-            <Link href="/marketplace?category=defi" className="card hover:border-[var(--success)] text-center group cursor-pointer">
+            <Link
+              href="/marketplace?category=defi"
+              className="card hover:border-[var(--success)] text-center group cursor-pointer"
+            >
               <div className="flex justify-center mb-3">
                 <BuildingLibraryIcon className="w-16 h-16 text-[var(--success)] group-hover:scale-110 transition-transform" />
               </div>
-              <h3 className="font-bold group-hover:text-[var(--success)] transition-colors">DeFi</h3>
+              <h3 className="font-bold group-hover:text-[var(--success)] transition-colors">
+                DeFi
+              </h3>
             </Link>
 
-            <Link href="/marketplace?category=identity" className="card hover:border-[var(--info)] text-center group cursor-pointer">
+            <Link
+              href="/marketplace?category=identity"
+              className="card hover:border-[var(--info)] text-center group cursor-pointer"
+            >
               <div className="flex justify-center mb-3">
                 <LockClosedIcon className="w-16 h-16 text-[var(--info)] group-hover:scale-110 transition-transform" />
               </div>
-              <h3 className="font-bold group-hover:text-[var(--info)] transition-colors">IDENTITY</h3>
+              <h3 className="font-bold group-hover:text-[var(--info)] transition-colors">
+                IDENTITY
+              </h3>
             </Link>
           </div>
         </div>
@@ -225,26 +268,35 @@ const Home: NextPage = () => {
             {newReleases.map((agent, idx) => {
               const IconComponent = agent.icon;
               return (
-              <div key={idx} className="card hover:border-[var(--accent-purple)] cursor-pointer group">
-                <div className="flex flex-col h-full gap-4">
-                  <div className="flex items-center gap-4">
-                    <div className="w-14 h-14 rounded-2xl bg-[var(--bg-hover)] flex items-center justify-center group-hover:bg-[var(--accent-purple)]/10 transition-all shadow-md flex-shrink-0">
-                      <IconComponent className="w-7 h-7 text-[var(--accent-purple)]" />
+                <div
+                  key={idx}
+                  className="card hover:border-[var(--accent-purple)] cursor-pointer group"
+                >
+                  <div className="flex flex-col h-full gap-4">
+                    <div className="flex items-center gap-4">
+                      <div className="w-14 h-14 rounded-2xl bg-[var(--bg-hover)] flex items-center justify-center group-hover:bg-[var(--accent-purple)]/10 transition-all shadow-md flex-shrink-0">
+                        <IconComponent className="w-7 h-7 text-[var(--accent-purple)]" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-bold truncate">{agent.name}</h3>
+                        <p className="text-xs text-[var(--text-secondary)] truncate">
+                          by BitZen Labs
+                        </p>
+                      </div>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-bold truncate">{agent.name}</h3>
-                      <p className="text-xs text-[var(--text-secondary)] truncate">by BitZen Labs</p>
+                    <div className="mt-auto">
+                      <span
+                        className={`badge whitespace-nowrap ${
+                          agent.badge.includes("Silver")
+                            ? "badge-purple"
+                            : "badge-success"
+                        }`}
+                      >
+                        {agent.badge}
+                      </span>
                     </div>
-                  </div>
-                  <div className="mt-auto">
-                    <span className={`badge whitespace-nowrap ${
-                      agent.badge.includes('Silver') ? 'badge-purple' : 'badge-success'
-                    }`}>
-                      {agent.badge}
-                    </span>
                   </div>
                 </div>
-              </div>
               );
             })}
           </div>
@@ -261,9 +313,13 @@ const Home: NextPage = () => {
                   Get Peace of Mind with Verified Agents
                 </h2>
                 <p className="text-[var(--text-secondary)] mb-6">
-                  Every agent's code and ZK proofs are audited and verifiable—so you know it's legit.
+                  Every agent's code and ZK proofs are audited and verifiable—so
+                  you know it's legit.
                 </p>
-                <Link href="/marketplace" className="btn-primary inline-flex items-center gap-2">
+                <Link
+                  href="/marketplace"
+                  className="btn-primary inline-flex items-center gap-2"
+                >
                   <ShieldCheckIcon className="w-5 h-5" />
                   Browse Verified Agents
                 </Link>
@@ -282,20 +338,36 @@ const Home: NextPage = () => {
           <div className="card">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
               <div>
-                <div className="text-4xl font-bold text-[var(--accent-purple)] mb-2">3</div>
-                <div className="text-sm text-[var(--text-secondary)]">Smart Contracts</div>
+                <div className="text-4xl font-bold text-[var(--accent-purple)] mb-2">
+                  3
+                </div>
+                <div className="text-sm text-[var(--text-secondary)]">
+                  Smart Contracts
+                </div>
               </div>
               <div>
-                <div className="text-4xl font-bold text-[var(--accent-orange)] mb-2">21</div>
-                <div className="text-sm text-[var(--text-secondary)]">API Endpoints</div>
+                <div className="text-4xl font-bold text-[var(--accent-orange)] mb-2">
+                  21
+                </div>
+                <div className="text-sm text-[var(--text-secondary)]">
+                  API Endpoints
+                </div>
               </div>
               <div>
-                <div className="text-4xl font-bold text-[var(--success)] mb-2">14</div>
-                <div className="text-sm text-[var(--text-secondary)]">Plugin Actions</div>
+                <div className="text-4xl font-bold text-[var(--success)] mb-2">
+                  14
+                </div>
+                <div className="text-sm text-[var(--text-secondary)]">
+                  Plugin Actions
+                </div>
               </div>
               <div>
-                <div className="text-4xl font-bold text-[var(--accent-purple)] mb-2">100%</div>
-                <div className="text-sm text-[var(--text-secondary)]">Decentralized</div>
+                <div className="text-4xl font-bold text-[var(--accent-purple)] mb-2">
+                  100%
+                </div>
+                <div className="text-sm text-[var(--text-secondary)]">
+                  Decentralized
+                </div>
               </div>
             </div>
           </div>
@@ -310,11 +382,10 @@ const Home: NextPage = () => {
               Join Our Community on Discord
             </h2>
             <p className="text-[var(--text-secondary)] mb-8 max-w-2xl mx-auto">
-              Connect with developers, get support, share your agents, and stay updated with the latest news.
+              Connect with developers, get support, share your agents, and stay
+              updated with the latest news.
             </p>
-            <button className="btn-primary">
-              Join Now
-            </button>
+            <button className="btn-primary">Join Now</button>
           </div>
         </div>
       </section>

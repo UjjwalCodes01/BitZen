@@ -3,9 +3,9 @@
  * Interact with BitZen service marketplace
  */
 
-import { useState, useCallback } from 'react';
-import { backendApi } from '~~/services/api/backendApi';
-import { useAccount } from '@starknet-react/core';
+import { useState, useCallback } from "react";
+import { backendApi } from "~~/services/api/backendApi";
+import { useAccount } from "@starknet-react/core";
 
 export const useServices = () => {
   const { address } = useAccount();
@@ -24,7 +24,7 @@ export const useServices = () => {
       minStake: string;
       metadata?: any;
     }) => {
-      if (!address) throw new Error('Wallet not connected');
+      if (!address) throw new Error("Wallet not connected");
 
       setIsLoading(true);
       setError(null);
@@ -42,7 +42,7 @@ export const useServices = () => {
         setIsLoading(false);
       }
     },
-    [address]
+    [address],
   );
 
   /**
@@ -68,7 +68,7 @@ export const useServices = () => {
         setIsLoading(false);
       }
     },
-    []
+    [],
   );
 
   /**
@@ -94,7 +94,7 @@ export const useServices = () => {
    */
   const submitReview = useCallback(
     async (serviceId: string, rating: number, comment: string) => {
-      if (!address) throw new Error('Wallet not connected');
+      if (!address) throw new Error("Wallet not connected");
 
       setIsLoading(true);
       setError(null);
@@ -113,7 +113,7 @@ export const useServices = () => {
         setIsLoading(false);
       }
     },
-    [address]
+    [address],
   );
 
   /**

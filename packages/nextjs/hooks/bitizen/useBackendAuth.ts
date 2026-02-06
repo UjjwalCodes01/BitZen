@@ -3,10 +3,10 @@
  * Handles wallet signature authentication with backend
  */
 
-import { useState, useCallback, useEffect } from 'react';
-import { useAccount } from '@starknet-react/core';
-import { backendApi } from '~~/services/api/backendApi';
-import { TypedData } from 'starknet';
+import { useState, useCallback, useEffect } from "react";
+import { useAccount } from "@starknet-react/core";
+import { backendApi } from "~~/services/api/backendApi";
+import { TypedData } from "starknet";
 
 interface AuthState {
   isAuthenticated: boolean;
@@ -27,7 +27,7 @@ export const useBackendAuth = () => {
   // Check if already authenticated on mount
   useEffect(() => {
     const checkAuth = async () => {
-      const token = localStorage.getItem('bitizen_auth_token');
+      const token = localStorage.getItem("bitizen_auth_token");
       if (token && address) {
         try {
           const user = await backendApi.getCurrentUser();
@@ -58,14 +58,14 @@ export const useBackendAuth = () => {
    */
   const login = useCallback(async () => {
     if (!account || !address) {
-      setAuthState(prev => ({
+      setAuthState((prev) => ({
         ...prev,
-        error: 'Wallet not connected',
+        error: "Wallet not connected",
       }));
       return false;
     }
 
-    setAuthState(prev => ({ ...prev, isLoading: true, error: null }));
+    setAuthState((prev) => ({ ...prev, isLoading: true, error: null }));
 
     try {
       // Step 1: Get message to sign from backend
@@ -74,17 +74,17 @@ export const useBackendAuth = () => {
       // Step 2: Sign the message with wallet
       const signature = await account.signMessage({
         domain: {
-          name: 'BitZen',
-          version: '1',
-          chainId: 'SN_SEPOLIA',
+          name: "BitZen",
+          version: "1",
+          chainId: "SN_SEPOLIA",
         },
         types: {
           Message: [
-            { name: 'message', type: 'felt' },
-            { name: 'nonce', type: 'felt' },
+            { name: "message", type: "felt" },
+            { name: "nonce", type: "felt" },
           ],
         },
-        primaryType: 'Message',
+        primaryType: "Message",
         message: {
           message,
           nonce,
@@ -107,11 +107,11 @@ export const useBackendAuth = () => {
 
       return true;
     } catch (error: any) {
-      console.error('Authentication error:', error);
-      setAuthState(prev => ({
+      console.error("Authentication error:", error);
+      setAuthState((prev) => ({
         ...prev,
         isLoading: false,
-        error: error.message || 'Authentication failed',
+        error: error.message || "Authentication failed",
       }));
       return false;
     }

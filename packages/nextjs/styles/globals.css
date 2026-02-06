@@ -392,45 +392,45 @@
 
 :root {
   /* Core Colors */
-  --bg-obsidian: #0B0E14;
+  --bg-obsidian: #0b0e14;
   --bg-dark: #151922;
-  --bg-card: #1A1F2E;
+  --bg-card: #1a1f2e;
   --bg-hover: #242936;
-  
+
   /* Starknet Purple Accent */
-  --accent-purple: #B794F4;
-  --accent-purple-light: #D6BCFA;
-  --accent-purple-dark: #9F7AEA;
-  
+  --accent-purple: #b794f4;
+  --accent-purple-light: #d6bcfa;
+  --accent-purple-dark: #9f7aea;
+
   /* Bitcoin Orange Accent */
-  --accent-orange: #F6AD55;
-  --accent-orange-light: #FBD38D;
-  --accent-orange-dark: #ED8936;
-  
+  --accent-orange: #f6ad55;
+  --accent-orange-light: #fbd38d;
+  --accent-orange-dark: #ed8936;
+
   /* Status Colors */
-  --success: #48BB78;
-  --warning: #F6AD55;
-  --error: #FC8181;
-  --info: #63B3ED;
-  
+  --success: #48bb78;
+  --warning: #f6ad55;
+  --error: #fc8181;
+  --info: #63b3ed;
+
   /* Text */
-  --text-primary: #F7FAFC;
-  --text-secondary: #A0AEC0;
+  --text-primary: #f7fafc;
+  --text-secondary: #a0aec0;
   --text-muted: #718096;
-  
+
   /* Borders */
-  --border-color: #2D3748;
+  --border-color: #2d3748;
   --border-glow: rgba(183, 148, 244, 0.3);
-  
+
   /* Glow Effects */
   --glow-purple: 0 0 20px rgba(183, 148, 244, 0.4);
   --glow-orange: 0 0 20px rgba(246, 173, 85, 0.4);
   --glow-success: 0 0 20px rgba(72, 187, 120, 0.4);
-  
+
   /* Gradients */
-  --gradient-purple: linear-gradient(135deg, #B794F4 0%, #9F7AEA 100%);
-  --gradient-orange: linear-gradient(135deg, #F6AD55 0%, #ED8936 100%);
-  --gradient-dark: linear-gradient(180deg, #1A1F2E 0%, #0B0E14 100%);
+  --gradient-purple: linear-gradient(135deg, #b794f4 0%, #9f7aea 100%);
+  --gradient-orange: linear-gradient(135deg, #f6ad55 0%, #ed8936 100%);
+  --gradient-dark: linear-gradient(180deg, #1a1f2e 0%, #0b0e14 100%);
 }
 
 /* Base Styles */
@@ -480,7 +480,8 @@ body {
 }
 
 @keyframes pulse-glow {
-  0%, 100% {
+  0%,
+  100% {
     box-shadow: 0 0 10px rgba(183, 148, 244, 0.4);
   }
   50% {
@@ -495,7 +496,9 @@ body {
   border-radius: 24px;
   padding: 1.5rem;
   transition: all 0.3s ease;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  box-shadow:
+    0 4px 6px -1px rgba(0, 0, 0, 0.1),
+    0 2px 4px -1px rgba(0, 0, 0, 0.06);
 }
 
 .card:hover {

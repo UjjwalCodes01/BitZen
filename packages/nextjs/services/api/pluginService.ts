@@ -3,9 +3,10 @@
  * Integration with BitZen AI agent plugins (Bitcoin, ZKProof, Account)
  */
 
-import { AgentContext, ActionResult } from './pluginTypes';
+import { AgentContext, ActionResult } from "./pluginTypes";
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3002';
+const BACKEND_URL =
+  process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3002";
 
 class PluginService {
   private context: AgentContext | null = null;
@@ -13,11 +14,11 @@ class PluginService {
   /**
    * Initialize plugin context with agent details
    */
-  initializeContext(agentAddress: string, network: string = 'sepolia'): void {
+  initializeContext(agentAddress: string, network: string = "sepolia"): void {
     this.context = {
       agentAddress,
       network,
-      rpcUrl: process.env.NEXT_PUBLIC_STARKNET_RPC_URL || '',
+      rpcUrl: process.env.NEXT_PUBLIC_STARKNET_RPC_URL || "",
       backendUrl: BACKEND_URL,
     };
   }
@@ -33,7 +34,7 @@ class PluginService {
    * Check if plugins are enabled
    */
   isEnabled(): boolean {
-    return process.env.NEXT_PUBLIC_PLUGINS_ENABLED === 'true';
+    return process.env.NEXT_PUBLIC_PLUGINS_ENABLED === "true";
   }
 
   // ==================== BITCOIN PLUGIN ====================
@@ -42,27 +43,30 @@ class PluginService {
    * Get Bitcoin to Starknet swap quote
    */
   async getBitcoinSwapQuote(params: {
-    fromCurrency: 'BTC' | 'STRK';
-    toCurrency: 'BTC' | 'STRK';
+    fromCurrency: "BTC" | "STRK";
+    toCurrency: "BTC" | "STRK";
     amount: string;
   }): Promise<ActionResult> {
-    if (!this.context) throw new Error('Plugin context not initialized');
+    if (!this.context) throw new Error("Plugin context not initialized");
 
     try {
-      const response = await fetch(`${BACKEND_URL}/api/v1/plugins/bitcoin/quote`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...params,
-          agentAddress: this.context.agentAddress,
-        }),
-      });
+      const response = await fetch(
+        `${BACKEND_URL}/api/v1/plugins/bitcoin/quote`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...params,
+            agentAddress: this.context.agentAddress,
+          }),
+        },
+      );
 
       return await response.json();
     } catch (error: any) {
       return {
         success: false,
-        error: error.message || 'Failed to get swap quote',
+        error: error.message || "Failed to get swap quote",
       };
     }
   }
@@ -71,28 +75,31 @@ class PluginService {
    * Execute Bitcoin atomic swap
    */
   async executeBitcoinSwap(params: {
-    fromCurrency: 'BTC' | 'STRK';
-    toCurrency: 'BTC' | 'STRK';
+    fromCurrency: "BTC" | "STRK";
+    toCurrency: "BTC" | "STRK";
     amount: string;
     destinationAddress: string;
   }): Promise<ActionResult> {
-    if (!this.context) throw new Error('Plugin context not initialized');
+    if (!this.context) throw new Error("Plugin context not initialized");
 
     try {
-      const response = await fetch(`${BACKEND_URL}/api/v1/plugins/bitcoin/swap`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...params,
-          agentAddress: this.context.agentAddress,
-        }),
-      });
+      const response = await fetch(
+        `${BACKEND_URL}/api/v1/plugins/bitcoin/swap`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...params,
+            agentAddress: this.context.agentAddress,
+          }),
+        },
+      );
 
       return await response.json();
     } catch (error: any) {
       return {
         success: false,
-        error: error.message || 'Failed to execute swap',
+        error: error.message || "Failed to execute swap",
       };
     }
   }
@@ -103,13 +110,13 @@ class PluginService {
   async getBitcoinSwapStatus(swapId: string): Promise<ActionResult> {
     try {
       const response = await fetch(
-        `${BACKEND_URL}/api/v1/plugins/bitcoin/swap/${swapId}/status`
+        `${BACKEND_URL}/api/v1/plugins/bitcoin/swap/${swapId}/status`,
       );
       return await response.json();
     } catch (error: any) {
       return {
         success: false,
-        error: error.message || 'Failed to get swap status',
+        error: error.message || "Failed to get swap status",
       };
     }
   }
@@ -120,13 +127,13 @@ class PluginService {
   async getBitcoinBalance(address: string): Promise<ActionResult> {
     try {
       const response = await fetch(
-        `${BACKEND_URL}/api/v1/plugins/bitcoin/balance/${address}`
+        `${BACKEND_URL}/api/v1/plugins/bitcoin/balance/${address}`,
       );
       return await response.json();
     } catch (error: any) {
       return {
         success: false,
-        error: error.message || 'Failed to get BTC balance',
+        error: error.message || "Failed to get BTC balance",
       };
     }
   }
@@ -141,20 +148,23 @@ class PluginService {
     publicKey: string;
     metadata?: any;
   }): Promise<ActionResult> {
-    if (!this.context) throw new Error('Plugin context not initialized');
+    if (!this.context) throw new Error("Plugin context not initialized");
 
     try {
-      const response = await fetch(`${BACKEND_URL}/api/v1/plugins/zkproof/generate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(params),
-      });
+      const response = await fetch(
+        `${BACKEND_URL}/api/v1/plugins/zkproof/generate`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(params),
+        },
+      );
 
       return await response.json();
     } catch (error: any) {
       return {
         success: false,
-        error: error.message || 'Failed to generate ZK proof',
+        error: error.message || "Failed to generate ZK proof",
       };
     }
   }
@@ -164,17 +174,20 @@ class PluginService {
    */
   async verifyZKProof(proof: string): Promise<ActionResult> {
     try {
-      const response = await fetch(`${BACKEND_URL}/api/v1/plugins/zkproof/verify`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ proof }),
-      });
+      const response = await fetch(
+        `${BACKEND_URL}/api/v1/plugins/zkproof/verify`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ proof }),
+        },
+      );
 
       return await response.json();
     } catch (error: any) {
       return {
         success: false,
-        error: error.message || 'Failed to verify ZK proof',
+        error: error.message || "Failed to verify ZK proof",
       };
     }
   }
@@ -185,13 +198,13 @@ class PluginService {
   async getZKProofStatus(proofId: string): Promise<ActionResult> {
     try {
       const response = await fetch(
-        `${BACKEND_URL}/api/v1/plugins/zkproof/status/${proofId}`
+        `${BACKEND_URL}/api/v1/plugins/zkproof/status/${proofId}`,
       );
       return await response.json();
     } catch (error: any) {
       return {
         success: false,
-        error: error.message || 'Failed to get proof status',
+        error: error.message || "Failed to get proof status",
       };
     }
   }
@@ -206,26 +219,26 @@ class PluginService {
     permissions: string[];
     metadata?: any;
   }): Promise<ActionResult> {
-    if (!this.context) throw new Error('Plugin context not initialized');
+    if (!this.context) throw new Error("Plugin context not initialized");
 
     try {
       const response = await fetch(
         `${BACKEND_URL}/api/v1/plugins/account/session/create`,
         {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             ...params,
             agentAddress: this.context.agentAddress,
           }),
-        }
+        },
       );
 
       return await response.json();
     } catch (error: any) {
       return {
         success: false,
-        error: error.message || 'Failed to create session key',
+        error: error.message || "Failed to create session key",
       };
     }
   }
@@ -234,25 +247,25 @@ class PluginService {
    * Revoke session key
    */
   async revokeSessionKey(sessionId: string): Promise<ActionResult> {
-    if (!this.context) throw new Error('Plugin context not initialized');
+    if (!this.context) throw new Error("Plugin context not initialized");
 
     try {
       const response = await fetch(
         `${BACKEND_URL}/api/v1/plugins/account/session/${sessionId}/revoke`,
         {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             agentAddress: this.context.agentAddress,
           }),
-        }
+        },
       );
 
       return await response.json();
     } catch (error: any) {
       return {
         success: false,
-        error: error.message || 'Failed to revoke session key',
+        error: error.message || "Failed to revoke session key",
       };
     }
   }
@@ -261,17 +274,17 @@ class PluginService {
    * List active sessions
    */
   async listActiveSessions(): Promise<ActionResult> {
-    if (!this.context) throw new Error('Plugin context not initialized');
+    if (!this.context) throw new Error("Plugin context not initialized");
 
     try {
       const response = await fetch(
-        `${BACKEND_URL}/api/v1/plugins/account/sessions/${this.context.agentAddress}`
+        `${BACKEND_URL}/api/v1/plugins/account/sessions/${this.context.agentAddress}`,
       );
       return await response.json();
     } catch (error: any) {
       return {
         success: false,
-        error: error.message || 'Failed to list sessions',
+        error: error.message || "Failed to list sessions",
       };
     }
   }
@@ -284,23 +297,26 @@ class PluginService {
     taskType: string;
     parameters: any;
   }): Promise<ActionResult> {
-    if (!this.context) throw new Error('Plugin context not initialized');
+    if (!this.context) throw new Error("Plugin context not initialized");
 
     try {
-      const response = await fetch(`${BACKEND_URL}/api/v1/plugins/account/task`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...params,
-          agentAddress: this.context.agentAddress,
-        }),
-      });
+      const response = await fetch(
+        `${BACKEND_URL}/api/v1/plugins/account/task`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...params,
+            agentAddress: this.context.agentAddress,
+          }),
+        },
+      );
 
       return await response.json();
     } catch (error: any) {
       return {
         success: false,
-        error: error.message || 'Failed to execute task',
+        error: error.message || "Failed to execute task",
       };
     }
   }
@@ -312,26 +328,26 @@ class PluginService {
     dailyLimit: string;
     transactionLimit: string;
   }): Promise<ActionResult> {
-    if (!this.context) throw new Error('Plugin context not initialized');
+    if (!this.context) throw new Error("Plugin context not initialized");
 
     try {
       const response = await fetch(
         `${BACKEND_URL}/api/v1/plugins/account/spending-limits`,
         {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             ...params,
             agentAddress: this.context.agentAddress,
           }),
-        }
+        },
       );
 
       return await response.json();
     } catch (error: any) {
       return {
         success: false,
-        error: error.message || 'Failed to set spending limits',
+        error: error.message || "Failed to set spending limits",
       };
     }
   }

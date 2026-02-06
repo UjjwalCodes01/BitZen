@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import type { NextPage } from 'next';
-import { useState } from 'react';
-import { useParams } from 'next/navigation';
-import Link from 'next/link';
+import type { NextPage } from "next";
+import { useState } from "react";
+import { useParams } from "next/navigation";
+import Link from "next/link";
 import {
   StarIcon,
   ShieldCheckIcon,
@@ -14,26 +14,28 @@ import {
   PlusIcon,
   XMarkIcon,
   LockClosedIcon,
-} from '@heroicons/react/24/solid';
-import { StarIcon as StarOutline } from '@heroicons/react/24/outline';
+} from "@heroicons/react/24/solid";
+import { StarIcon as StarOutline } from "@heroicons/react/24/outline";
 
 const ServiceDetail: NextPage = () => {
   const params = useParams();
   const serviceId = params?.id;
 
-  const [activeTab, setActiveTab] = useState<'overview' | 'reviews' | 'auditors' | 'activity'>('overview');
+  const [activeTab, setActiveTab] = useState<
+    "overview" | "reviews" | "auditors" | "activity"
+  >("overview");
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [showStakeModal, setShowStakeModal] = useState(false);
   const [reviewRating, setReviewRating] = useState(5);
-  const [reviewText, setReviewText] = useState('');
-  const [stakeAmount, setStakeAmount] = useState('');
+  const [reviewText, setReviewText] = useState("");
+  const [stakeAmount, setStakeAmount] = useState("");
 
   // Mock service data
   const service = {
     id: serviceId,
-    name: 'ZK Passport Agent',
-    category: 'Identity',
-    provider: '0x1a2b3c4d5e6f7g8h9i0j1k2l3m4n5o6p',
+    name: "ZK Passport Agent",
+    category: "Identity",
+    provider: "0x1a2b3c4d5e6f7g8h9i0j1k2l3m4n5o6p",
     description: `Generate and verify zero-knowledge identity proofs on Starknet. This agent enables privacy-preserving identity verification without revealing sensitive personal information.
 
 ## Features
@@ -70,37 +72,40 @@ const proof = await agent.generateProof({
     stake: 850,
     auditors: 12,
     verified: true,
-    status: 'active',
-    price: '0.5 STRK/call',
+    status: "active",
+    price: "0.5 STRK/call",
     totalCalls: 3420,
     integrations: 45,
-    uptime: '99.8%',
+    uptime: "99.8%",
   };
 
   // Mock reviews
   const reviews = [
     {
       id: 1,
-      author: '0xabc...def',
+      author: "0xabc...def",
       rating: 5,
-      date: 'Jan 28, 2026',
-      content: 'Excellent service! ZK proofs generated instantly and verification is super fast. Highly recommend for any privacy-focused application.',
+      date: "Jan 28, 2026",
+      content:
+        "Excellent service! ZK proofs generated instantly and verification is super fast. Highly recommend for any privacy-focused application.",
       helpful: 12,
     },
     {
       id: 2,
-      author: '0x123...456',
+      author: "0x123...456",
       rating: 4,
-      date: 'Jan 25, 2026',
-      content: 'Great agent overall. Documentation could be more detailed, but the API is straightforward to use.',
+      date: "Jan 25, 2026",
+      content:
+        "Great agent overall. Documentation could be more detailed, but the API is straightforward to use.",
       helpful: 8,
     },
     {
       id: 3,
-      author: '0x789...abc',
+      author: "0x789...abc",
       rating: 5,
-      date: 'Jan 22, 2026',
-      content: 'Game-changer for our KYC process. No more storing sensitive user data!',
+      date: "Jan 22, 2026",
+      content:
+        "Game-changer for our KYC process. No more storing sensitive user data!",
       helpful: 15,
     },
   ];
@@ -108,19 +113,19 @@ const proof = await agent.generateProof({
   // Mock auditors
   const auditors = [
     {
-      address: '0x1234567890abcdef',
+      address: "0x1234567890abcdef",
       stake: 250,
-      since: 'Jan 15, 2026',
+      since: "Jan 15, 2026",
     },
     {
-      address: '0xfedcba0987654321',
+      address: "0xfedcba0987654321",
       stake: 180,
-      since: 'Jan 18, 2026',
+      since: "Jan 18, 2026",
     },
     {
-      address: '0xabcdef1234567890',
+      address: "0xabcdef1234567890",
       stake: 150,
-      since: 'Jan 20, 2026',
+      since: "Jan 20, 2026",
     },
   ];
 
@@ -128,27 +133,27 @@ const proof = await agent.generateProof({
   const activity = [
     {
       id: 1,
-      type: 'Service Call',
-      details: 'Generate ZK proof requested',
-      time: '2 hours ago',
+      type: "Service Call",
+      details: "Generate ZK proof requested",
+      time: "2 hours ago",
     },
     {
       id: 2,
-      type: 'Review',
-      details: 'New 5-star review submitted',
-      time: '5 hours ago',
+      type: "Review",
+      details: "New 5-star review submitted",
+      time: "5 hours ago",
     },
     {
       id: 3,
-      type: 'Stake',
-      details: '150 STRK staked by auditor',
-      time: '1 day ago',
+      type: "Stake",
+      details: "150 STRK staked by auditor",
+      time: "1 day ago",
     },
     {
       id: 4,
-      type: 'Service Call',
-      details: 'Verify ZK proof requested',
-      time: '1 day ago',
+      type: "Service Call",
+      details: "Verify ZK proof requested",
+      time: "1 day ago",
     },
   ];
 
@@ -164,20 +169,23 @@ const proof = await agent.generateProof({
     // TODO: Submit review
     setShowReviewModal(false);
     setReviewRating(5);
-    setReviewText('');
+    setReviewText("");
   };
 
   const handleStake = () => {
     // TODO: Submit stake
     setShowStakeModal(false);
-    setStakeAmount('');
+    setStakeAmount("");
   };
 
   return (
     <div className="min-h-screen py-8 px-4">
       <div className="container mx-auto max-w-7xl">
         {/* Back Button */}
-        <Link href="/marketplace" className="inline-flex items-center gap-2 text-[var(--accent-purple)] hover:underline mb-6">
+        <Link
+          href="/marketplace"
+          className="inline-flex items-center gap-2 text-[var(--accent-purple)] hover:underline mb-6"
+        >
           ← Back to Marketplace
         </Link>
 
@@ -200,16 +208,23 @@ const proof = await agent.generateProof({
                       </span>
                     )}
                   </div>
-                  <span className="badge badge-purple mb-3">{service.category}</span>
+                  <span className="badge badge-purple mb-3">
+                    {service.category}
+                  </span>
                   <div className="flex items-center gap-4 text-sm">
                     <div className="flex items-center gap-1">
                       <StarIcon className="w-5 h-5 text-[var(--accent-orange)]" />
                       <span className="font-bold">{service.rating}</span>
-                      <span className="text-[var(--text-secondary)]">({service.totalReviews} reviews)</span>
+                      <span className="text-[var(--text-secondary)]">
+                        ({service.totalReviews} reviews)
+                      </span>
                     </div>
                     <div className="text-[var(--text-secondary)]">•</div>
                     <div className="text-[var(--text-secondary)]">
-                      Provider: <span className="font-mono text-xs">{service.provider.slice(0, 10)}...</span>
+                      Provider:{" "}
+                      <span className="font-mono text-xs">
+                        {service.provider.slice(0, 10)}...
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -219,8 +234,12 @@ const proof = await agent.generateProof({
             {/* Right: Quick Stats & Actions */}
             <div className="space-y-4">
               <div className="p-4 rounded-xl bg-[var(--bg-hover)] border border-[var(--border-color)]">
-                <div className="text-sm text-[var(--text-secondary)] mb-1">Price</div>
-                <div className="text-2xl font-bold text-[var(--accent-orange)]">{service.price}</div>
+                <div className="text-sm text-[var(--text-secondary)] mb-1">
+                  Price
+                </div>
+                <div className="text-2xl font-bold text-[var(--accent-orange)]">
+                  {service.price}
+                </div>
               </div>
               <div className="flex gap-2">
                 <button className="btn-primary flex-1 inline-flex items-center justify-center gap-2">
@@ -240,20 +259,32 @@ const proof = await agent.generateProof({
           {/* Additional Stats */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6 pt-6 border-t border-[var(--border-color)]">
             <div>
-              <div className="text-sm text-[var(--text-secondary)] mb-1">Total Stake</div>
+              <div className="text-sm text-[var(--text-secondary)] mb-1">
+                Total Stake
+              </div>
               <div className="font-bold text-lg">{service.stake} STRK</div>
             </div>
             <div>
-              <div className="text-sm text-[var(--text-secondary)] mb-1">Auditors</div>
+              <div className="text-sm text-[var(--text-secondary)] mb-1">
+                Auditors
+              </div>
               <div className="font-bold text-lg">{service.auditors}</div>
             </div>
             <div>
-              <div className="text-sm text-[var(--text-secondary)] mb-1">Total Calls</div>
-              <div className="font-bold text-lg">{service.totalCalls.toLocaleString()}</div>
+              <div className="text-sm text-[var(--text-secondary)] mb-1">
+                Total Calls
+              </div>
+              <div className="font-bold text-lg">
+                {service.totalCalls.toLocaleString()}
+              </div>
             </div>
             <div>
-              <div className="text-sm text-[var(--text-secondary)] mb-1">Uptime</div>
-              <div className="font-bold text-lg text-[var(--success)]">{service.uptime}</div>
+              <div className="text-sm text-[var(--text-secondary)] mb-1">
+                Uptime
+              </div>
+              <div className="font-bold text-lg text-[var(--success)]">
+                {service.uptime}
+              </div>
             </div>
           </div>
         </div>
@@ -262,41 +293,41 @@ const proof = await agent.generateProof({
         <div className="card mb-8 p-0 overflow-hidden">
           <div className="flex border-b border-[var(--border-color)]">
             <button
-              onClick={() => setActiveTab('overview')}
+              onClick={() => setActiveTab("overview")}
               className={`flex-1 px-6 py-4 font-semibold transition-colors ${
-                activeTab === 'overview'
-                  ? 'bg-[var(--accent-purple)] text-white'
-                  : 'hover:bg-[var(--bg-hover)]'
+                activeTab === "overview"
+                  ? "bg-[var(--accent-purple)] text-white"
+                  : "hover:bg-[var(--bg-hover)]"
               }`}
             >
               Overview
             </button>
             <button
-              onClick={() => setActiveTab('reviews')}
+              onClick={() => setActiveTab("reviews")}
               className={`flex-1 px-6 py-4 font-semibold transition-colors ${
-                activeTab === 'reviews'
-                  ? 'bg-[var(--accent-purple)] text-white'
-                  : 'hover:bg-[var(--bg-hover)]'
+                activeTab === "reviews"
+                  ? "bg-[var(--accent-purple)] text-white"
+                  : "hover:bg-[var(--bg-hover)]"
               }`}
             >
               Reviews
             </button>
             <button
-              onClick={() => setActiveTab('auditors')}
+              onClick={() => setActiveTab("auditors")}
               className={`flex-1 px-6 py-4 font-semibold transition-colors ${
-                activeTab === 'auditors'
-                  ? 'bg-[var(--accent-purple)] text-white'
-                  : 'hover:bg-[var(--bg-hover)]'
+                activeTab === "auditors"
+                  ? "bg-[var(--accent-purple)] text-white"
+                  : "hover:bg-[var(--bg-hover)]"
               }`}
             >
               Auditors
             </button>
             <button
-              onClick={() => setActiveTab('activity')}
+              onClick={() => setActiveTab("activity")}
               className={`flex-1 px-6 py-4 font-semibold transition-colors ${
-                activeTab === 'activity'
-                  ? 'bg-[var(--accent-purple)] text-white'
-                  : 'hover:bg-[var(--bg-hover)]'
+                activeTab === "activity"
+                  ? "bg-[var(--accent-purple)] text-white"
+                  : "hover:bg-[var(--bg-hover)]"
               }`}
             >
               Activity
@@ -305,44 +336,48 @@ const proof = await agent.generateProof({
         </div>
 
         {/* Tab Content */}
-        {activeTab === 'overview' && (
+        {activeTab === "overview" && (
           <div className="card prose prose-invert max-w-none">
             <div
               className="text-[var(--text-primary)]"
               dangerouslySetInnerHTML={{
                 __html: service.description
-                  .split('\n')
+                  .split("\n")
                   .map((line) => {
-                    if (line.startsWith('## ')) {
+                    if (line.startsWith("## ")) {
                       return `<h2 class="text-2xl font-bold mt-8 mb-4 text-[var(--accent-purple)]">${line.slice(3)}</h2>`;
                     }
-                    if (line.startsWith('- ')) {
+                    if (line.startsWith("- ")) {
                       return `<li class="text-[var(--text-secondary)]">${line.slice(2)}</li>`;
                     }
-                    if (line.startsWith('**')) {
+                    if (line.startsWith("**")) {
                       return `<p class="text-[var(--text-secondary)]">${line.replace(/\*\*(.*?)\*\*/g, '<strong class="text-[var(--text-primary)]">$1</strong>')}</p>`;
                     }
-                    if (line.startsWith('```')) {
-                      return line.includes('```typescript') ? '<pre class="bg-[var(--bg-dark)] p-4 rounded-xl overflow-x-auto"><code class="text-sm">' : '</code></pre>';
+                    if (line.startsWith("```")) {
+                      return line.includes("```typescript")
+                        ? '<pre class="bg-[var(--bg-dark)] p-4 rounded-xl overflow-x-auto"><code class="text-sm">'
+                        : "</code></pre>";
                     }
-                    if (line.trim() === '') {
-                      return '<br />';
+                    if (line.trim() === "") {
+                      return "<br />";
                     }
                     return `<p class="text-[var(--text-secondary)]">${line}</p>`;
                   })
-                  .join(''),
+                  .join(""),
               }}
             />
           </div>
         )}
 
-        {activeTab === 'reviews' && (
+        {activeTab === "reviews" && (
           <div>
             <div className="card mb-8 p-8">
               <div className="grid md:grid-cols-2 gap-8">
                 {/* Rating Distribution */}
                 <div>
-                  <h3 className="text-2xl font-bold mb-6">Rating Distribution</h3>
+                  <h3 className="text-2xl font-bold mb-6">
+                    Rating Distribution
+                  </h3>
                   <div className="space-y-3">
                     {ratingDistribution.map((dist) => (
                       <div key={dist.stars} className="flex items-center gap-3">
@@ -353,7 +388,9 @@ const proof = await agent.generateProof({
                             style={{ width: `${dist.percentage}%` }}
                           ></div>
                         </div>
-                        <span className="text-sm text-[var(--text-secondary)] w-12">{dist.count}</span>
+                        <span className="text-sm text-[var(--text-secondary)] w-12">
+                          {dist.count}
+                        </span>
                       </div>
                     ))}
                   </div>
@@ -361,17 +398,27 @@ const proof = await agent.generateProof({
 
                 {/* Overall Rating */}
                 <div className="flex flex-col items-center justify-center p-8 rounded-2xl bg-[var(--bg-hover)]">
-                  <div className="text-6xl font-bold text-[var(--accent-orange)] mb-2">{service.rating}</div>
+                  <div className="text-6xl font-bold text-[var(--accent-orange)] mb-2">
+                    {service.rating}
+                  </div>
                   <div className="flex gap-1 mb-2">
                     {[1, 2, 3, 4, 5].map((star) => (
-                      <StarIcon key={star} className="w-6 h-6 text-[var(--accent-orange)]" />
+                      <StarIcon
+                        key={star}
+                        className="w-6 h-6 text-[var(--accent-orange)]"
+                      />
                     ))}
                   </div>
-                  <div className="text-[var(--text-secondary)]">{service.totalReviews} reviews</div>
+                  <div className="text-[var(--text-secondary)]">
+                    {service.totalReviews} reviews
+                  </div>
                 </div>
               </div>
 
-              <button onClick={() => setShowReviewModal(true)} className="btn-primary w-full mt-6">
+              <button
+                onClick={() => setShowReviewModal(true)}
+                className="btn-primary w-full mt-6"
+              >
                 Write a Review
               </button>
             </div>
@@ -383,22 +430,36 @@ const proof = await agent.generateProof({
                   <div className="flex items-start justify-between mb-3">
                     <div>
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="font-mono text-sm">{review.author}</span>
-                        <span className="text-[var(--text-muted)] text-xs">•</span>
-                        <span className="text-sm text-[var(--text-secondary)]">{review.date}</span>
+                        <span className="font-mono text-sm">
+                          {review.author}
+                        </span>
+                        <span className="text-[var(--text-muted)] text-xs">
+                          •
+                        </span>
+                        <span className="text-sm text-[var(--text-secondary)]">
+                          {review.date}
+                        </span>
                       </div>
                       <div className="flex gap-1">
-                        {[1, 2, 3, 4, 5].map((star) => (
+                        {[1, 2, 3, 4, 5].map((star) =>
                           star <= review.rating ? (
-                            <StarIcon key={star} className="w-4 h-4 text-[var(--accent-orange)]" />
+                            <StarIcon
+                              key={star}
+                              className="w-4 h-4 text-[var(--accent-orange)]"
+                            />
                           ) : (
-                            <StarOutline key={star} className="w-4 h-4 text-[var(--text-muted)]" />
-                          )
-                        ))}
+                            <StarOutline
+                              key={star}
+                              className="w-4 h-4 text-[var(--text-muted)]"
+                            />
+                          ),
+                        )}
                       </div>
                     </div>
                   </div>
-                  <p className="text-[var(--text-secondary)] mb-3">{review.content}</p>
+                  <p className="text-[var(--text-secondary)] mb-3">
+                    {review.content}
+                  </p>
                   <div className="flex items-center gap-2 text-sm">
                     <button className="text-[var(--accent-purple)] hover:underline">
                       Helpful ({review.helpful})
@@ -410,24 +471,30 @@ const proof = await agent.generateProof({
           </div>
         )}
 
-        {activeTab === 'auditors' && (
+        {activeTab === "auditors" && (
           <div>
             <div className="card mb-6 p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-2xl font-bold mb-2">Become an Auditor</h3>
                   <p className="text-[var(--text-secondary)]">
-                    Stake STRK tokens to help verify this service and earn rewards
+                    Stake STRK tokens to help verify this service and earn
+                    rewards
                   </p>
                 </div>
-                <button onClick={() => setShowStakeModal(true)} className="btn-primary">
+                <button
+                  onClick={() => setShowStakeModal(true)}
+                  className="btn-primary"
+                >
                   Stake as Auditor
                 </button>
               </div>
             </div>
 
             <div className="card">
-              <h3 className="text-2xl font-bold mb-6">Current Auditors ({auditors.length})</h3>
+              <h3 className="text-2xl font-bold mb-6">
+                Current Auditors ({auditors.length})
+              </h3>
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
@@ -450,12 +517,18 @@ const proof = await agent.generateProof({
                         className="border-b border-[var(--border-color)] hover:bg-[var(--bg-hover)] transition-colors"
                       >
                         <td className="py-4 px-4">
-                          <span className="font-mono text-sm">{auditor.address}</span>
+                          <span className="font-mono text-sm">
+                            {auditor.address}
+                          </span>
                         </td>
                         <td className="py-4 px-4">
-                          <span className="font-bold text-[var(--accent-orange)]">{auditor.stake} STRK</span>
+                          <span className="font-bold text-[var(--accent-orange)]">
+                            {auditor.stake} STRK
+                          </span>
                         </td>
-                        <td className="py-4 px-4 text-[var(--text-secondary)]">{auditor.since}</td>
+                        <td className="py-4 px-4 text-[var(--text-secondary)]">
+                          {auditor.since}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -465,7 +538,7 @@ const proof = await agent.generateProof({
           </div>
         )}
 
-        {activeTab === 'activity' && (
+        {activeTab === "activity" && (
           <div className="card">
             <h3 className="text-2xl font-bold mb-6">Recent Activity</h3>
             <div className="space-y-3">
@@ -480,10 +553,14 @@ const proof = await agent.generateProof({
                     </div>
                     <div>
                       <div className="font-semibold">{item.type}</div>
-                      <div className="text-sm text-[var(--text-secondary)]">{item.details}</div>
+                      <div className="text-sm text-[var(--text-secondary)]">
+                        {item.details}
+                      </div>
                     </div>
                   </div>
-                  <div className="text-sm text-[var(--text-muted)]">{item.time}</div>
+                  <div className="text-sm text-[var(--text-muted)]">
+                    {item.time}
+                  </div>
                 </div>
               ))}
             </div>
@@ -506,7 +583,9 @@ const proof = await agent.generateProof({
 
               <div className="space-y-6">
                 <div>
-                  <label className="block text-sm font-semibold mb-3">Rating</label>
+                  <label className="block text-sm font-semibold mb-3">
+                    Rating
+                  </label>
                   <div className="flex gap-2">
                     {[1, 2, 3, 4, 5].map((star) => (
                       <button
@@ -525,7 +604,9 @@ const proof = await agent.generateProof({
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold mb-2">Your Review</label>
+                  <label className="block text-sm font-semibold mb-2">
+                    Your Review
+                  </label>
                   <textarea
                     value={reviewText}
                     onChange={(e) => setReviewText(e.target.value)}
@@ -537,13 +618,16 @@ const proof = await agent.generateProof({
               </div>
 
               <div className="flex gap-4 mt-8">
-                <button onClick={() => setShowReviewModal(false)} className="btn-outline flex-1">
+                <button
+                  onClick={() => setShowReviewModal(false)}
+                  className="btn-outline flex-1"
+                >
                   Cancel
                 </button>
                 <button
                   onClick={handleSubmitReview}
                   disabled={!reviewText.trim()}
-                  className={`btn-primary flex-1 ${!reviewText.trim() ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  className={`btn-primary flex-1 ${!reviewText.trim() ? "opacity-50 cursor-not-allowed" : ""}`}
                 >
                   Submit Review
                 </button>
@@ -567,11 +651,14 @@ const proof = await agent.generateProof({
               </div>
 
               <p className="text-sm text-[var(--text-secondary)] mb-6">
-                Stake STRK tokens to become an auditor for this service. Auditors help verify service quality and earn rewards.
+                Stake STRK tokens to become an auditor for this service.
+                Auditors help verify service quality and earn rewards.
               </p>
 
               <div className="mb-6">
-                <label className="block text-sm font-semibold mb-2">Stake Amount (STRK)</label>
+                <label className="block text-sm font-semibold mb-2">
+                  Stake Amount (STRK)
+                </label>
                 <input
                   type="number"
                   value={stakeAmount}
@@ -586,14 +673,19 @@ const proof = await agent.generateProof({
               </div>
 
               <div className="flex gap-4">
-                <button onClick={() => setShowStakeModal(false)} className="btn-outline flex-1">
+                <button
+                  onClick={() => setShowStakeModal(false)}
+                  className="btn-outline flex-1"
+                >
                   Cancel
                 </button>
                 <button
                   onClick={handleStake}
                   disabled={!stakeAmount || Number(stakeAmount) < 50}
                   className={`btn-primary flex-1 ${
-                    !stakeAmount || Number(stakeAmount) < 50 ? 'opacity-50 cursor-not-allowed' : ''
+                    !stakeAmount || Number(stakeAmount) < 50
+                      ? "opacity-50 cursor-not-allowed"
+                      : ""
                   }`}
                 >
                   Stake Tokens
