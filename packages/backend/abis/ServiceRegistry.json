@@ -1,0 +1,90 @@
+[
+  {
+    "type": "function",
+    "name": "register_service",
+    "inputs": [
+      {
+        "name": "name",
+        "type": "core::felt252"
+      },
+      {
+        "name": "description",
+        "type": "core::felt252"
+      },
+      {
+        "name": "endpoint",
+        "type": "core::felt252"
+      },
+      {
+        "name": "stake_amount",
+        "type": "core::integer::u256"
+      }
+    ],
+    "outputs": [],
+    "state_mutability": "external"
+  },
+  {
+    "type": "function",
+    "name": "submit_review",
+    "inputs": [
+      {
+        "name": "service_id",
+        "type": "core::felt252"
+      },
+      {
+        "name": "rating",
+        "type": "core::integer::u8"
+      },
+      {
+        "name": "review_hash",
+        "type": "core::felt252"
+      }
+    ],
+    "outputs": [],
+    "state_mutability": "external"
+  },
+  {
+    "type": "function",
+    "name": "stake_as_auditor",
+    "inputs": [
+      {
+        "name": "service_id",
+        "type": "core::felt252"
+      },
+      {
+        "name": "amount",
+        "type": "core::integer::u256"
+      }
+    ],
+    "outputs": [],
+    "state_mutability": "external"
+  },
+  {
+    "type": "function",
+    "name": "unstake",
+    "inputs": [
+      {
+        "name": "service_id",
+        "type": "core::felt252"
+      }
+    ],
+    "outputs": [],
+    "state_mutability": "external"
+  },
+  {
+    "type": "function",
+    "name": "get_service_info",
+    "inputs": [
+      {
+        "name": "service_id",
+        "type": "core::felt252"
+      }
+    ],
+    "outputs": [
+      {
+        "type": "(core::starknet::contract_address::ContractAddress, core::felt252, core::felt252, core::integer::u256, core::bool)"
+      }
+    ],
+    "state_mutability": "view"
+  }
+]
