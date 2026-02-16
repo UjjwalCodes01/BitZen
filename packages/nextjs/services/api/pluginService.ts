@@ -206,7 +206,10 @@ class PluginService {
   /**
    * Verify ZK proof
    */
-  async verifyZKProof(proof: string, publicInputs?: string[]): Promise<ActionResult> {
+  async verifyZKProof(
+    proof: string,
+    publicInputs?: string[],
+  ): Promise<ActionResult> {
     try {
       const response = await fetch(
         `${BACKEND_URL}/api/v1/plugins/zkproof/verify`,

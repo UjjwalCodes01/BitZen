@@ -49,17 +49,23 @@ const RegisterAgent: NextPage = () => {
     const toastId = toast.loading("Generating ZK proof...");
     try {
       // Call real ZKProof plugin API
-      const result = await zkproof.generate(address, { name: agentName || 'New Agent' });
+      const result = await zkproof.generate(address, {
+        name: agentName || "New Agent",
+      });
 
       if (result.success && result.data) {
         setZkProofData(result.data);
         setZkProofGenerated(true);
         toast.success("ZK Proof generated successfully!", { id: toastId });
       } else {
-        toast.error(result.error || "ZK Proof generation failed", { id: toastId });
+        toast.error(result.error || "ZK Proof generation failed", {
+          id: toastId,
+        });
       }
     } catch (error: any) {
-      toast.error(error.message || "ZK Proof generation failed", { id: toastId });
+      toast.error(error.message || "ZK Proof generation failed", {
+        id: toastId,
+      });
     } finally {
       setZkProofGenerating(false);
     }
@@ -72,7 +78,10 @@ const RegisterAgent: NextPage = () => {
     const toastId = toast.loading("Registering agent...");
     try {
       // Verify the ZK proof on-chain
-      const verifyResult = await zkproof.verify(zkProofData.proof, zkProofData.publicInputs);
+      const verifyResult = await zkproof.verify(
+        zkProofData.proof,
+        zkProofData.publicInputs,
+      );
 
       if (verifyResult.success) {
         // Register agent with verified proof
@@ -85,13 +94,13 @@ const RegisterAgent: NextPage = () => {
             categories: agentCategory,
             proofId: zkProofData.proofId,
             txHash: verifyResult.data?.txHash,
-          }
+          },
         );
 
         if (registerResult) {
           toast.success(
             `Agent registered successfully!\nProof ID: ${zkProofData.proofId}`,
-            { id: toastId, duration: 6000 }
+            { id: toastId, duration: 6000 },
           );
           router.push("/dashboard");
         } else {
@@ -101,7 +110,9 @@ const RegisterAgent: NextPage = () => {
         toast.error("ZK Proof verification failed", { id: toastId });
       }
     } catch (error: any) {
-      toast.error(error.message || "Agent registration failed", { id: toastId });
+      toast.error(error.message || "Agent registration failed", {
+        id: toastId,
+      });
     } finally {
       setSubmitting(false);
     }

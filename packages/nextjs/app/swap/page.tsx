@@ -114,11 +114,7 @@ const Swap: NextPage = () => {
     setQuoteLoading(true);
     try {
       // Call real Bitcoin plugin API
-      const result = await bitcoin.getQuote(
-        fromToken,
-        toToken,
-        fromAmount,
-      );
+      const result = await bitcoin.getQuote(fromToken, toToken, fromAmount);
 
       if (result.success && result.data) {
         const quote = result.data;
@@ -148,13 +144,15 @@ const Swap: NextPage = () => {
         fromToken,
         toToken,
         fromAmount,
-        toToken === "BTC" ? (btcAddress || "") : address,
+        toToken === "BTC" ? btcAddress || "" : address,
       );
 
       if (result.success && result.data) {
         const swap = result.data;
         setSwapId(swap.swapId);
-        alert(`Swap initiated! Swap ID: ${swap.swapId}\nStatus: ${swap.status}\nEstimated completion: ${new Date(swap.estimatedCompletion).toLocaleString()}`);
+        alert(
+          `Swap initiated! Swap ID: ${swap.swapId}\nStatus: ${swap.status}\nEstimated completion: ${new Date(swap.estimatedCompletion).toLocaleString()}`,
+        );
 
         // Reset form
         setFromAmount("");
@@ -175,9 +173,15 @@ const Swap: NextPage = () => {
   };
 
   // Calculate fees from quote data
-  const networkFee = quoteData ? `${(quoteData.fee * 0.3).toFixed(8)} ${toToken}` : "0.0001 BTC";
+  const networkFee = quoteData
+    ? `${(quoteData.fee * 0.3).toFixed(8)} ${toToken}`
+    : "0.0001 BTC";
   const gardenFee = "0.3%";
-  const totalFees = quoteData ? `${quoteData.fee.toFixed(8)} ${toToken}` : (fromToken === "BTC" ? "0.00015 BTC" : "0.68 STRK");
+  const totalFees = quoteData
+    ? `${quoteData.fee.toFixed(8)} ${toToken}`
+    : fromToken === "BTC"
+      ? "0.00015 BTC"
+      : "0.68 STRK";
 
   return (
     <div className="min-h-screen py-8 px-4">

@@ -61,21 +61,30 @@ const Sessions: NextPage = () => {
       try {
         const result = await account.listActiveSessions();
         if (result.success && result.data?.sessions) {
-          const mappedSessions: SessionKey[] = result.data.sessions.map((s: any) => ({
-            id: s.sessionId,
-            address: s.publicKey || s.sessionId,
-            created: new Date(s.createdAt).toLocaleDateString(),
-            expires: new Date(s.expiresAt).toLocaleDateString(),
-            daysLeft: Math.max(0, Math.ceil((s.expiresAt - Date.now()) / (1000 * 60 * 60 * 24))),
-            permissions: s.permissions || [],
-            actionsUsed: s.usage?.transactionCount || 0,
-            actionsLimit: parseInt(s.spendingLimit?.daily || '100'),
-            status: s.isExpired ? 'expired' : (s.expiresAt - Date.now() < 3 * 24 * 60 * 60 * 1000 ? 'expiring' : 'active'),
-          }));
+          const mappedSessions: SessionKey[] = result.data.sessions.map(
+            (s: any) => ({
+              id: s.sessionId,
+              address: s.publicKey || s.sessionId,
+              created: new Date(s.createdAt).toLocaleDateString(),
+              expires: new Date(s.expiresAt).toLocaleDateString(),
+              daysLeft: Math.max(
+                0,
+                Math.ceil((s.expiresAt - Date.now()) / (1000 * 60 * 60 * 24)),
+              ),
+              permissions: s.permissions || [],
+              actionsUsed: s.usage?.transactionCount || 0,
+              actionsLimit: parseInt(s.spendingLimit?.daily || "100"),
+              status: s.isExpired
+                ? "expired"
+                : s.expiresAt - Date.now() < 3 * 24 * 60 * 60 * 1000
+                  ? "expiring"
+                  : "active",
+            }),
+          );
           setSessions(mappedSessions);
         }
       } catch (error) {
-        console.error('Failed to fetch sessions:', error);
+        console.error("Failed to fetch sessions:", error);
       } finally {
         setLoading(false);
       }
@@ -110,7 +119,7 @@ const Sessions: NextPage = () => {
         {
           dailyLimit,
           transactionLimit: totalLimit,
-        }
+        },
       );
 
       if (result.success && result.data) {
@@ -127,12 +136,14 @@ const Sessions: NextPage = () => {
           status: "active",
         };
         setSessions([newSession, ...sessions]);
-        alert(`Session key created!\nSession ID: ${session.sessionId}\nPublic Key: ${session.publicKey.substring(0, 16)}...`);
+        alert(
+          `Session key created!\nSession ID: ${session.sessionId}\nPublic Key: ${session.publicKey.substring(0, 16)}...`,
+        );
       } else {
         alert("Failed to create session key. Please try again.");
       }
     } catch (error) {
-      console.error('Failed to create session:', error);
+      console.error("Failed to create session:", error);
       alert("Failed to create session key. Please try again.");
     } finally {
       setCreating(false);
@@ -157,7 +168,7 @@ const Sessions: NextPage = () => {
         alert("Failed to revoke session key. Please try again.");
       }
     } catch (error) {
-      console.error('Failed to revoke session:', error);
+      console.error("Failed to revoke session:", error);
       alert("Failed to revoke session key. Please try again.");
     } finally {
       setRevoking(null);

@@ -51,7 +51,9 @@ const Dashboard: NextPage = () => {
         }
 
         // Fetch Bitcoin balance (mock BTC address for demo)
-        const btcResult = await bitcoin.getBalance('bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh');
+        const btcResult = await bitcoin.getBalance(
+          "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh",
+        );
         if (btcResult.success && btcResult.data) {
           setBtcBalance(btcResult.data.balance);
           setBtcBalanceUSD(btcResult.data.balanceUSD);
@@ -60,14 +62,18 @@ const Dashboard: NextPage = () => {
         // Fetch active sessions
         const sessionsResult = await account.listActiveSessions();
         if (sessionsResult.success && sessionsResult.data) {
-          setSessionsCount(sessionsResult.data.count || sessionsResult.data.sessions?.length || 0);
+          setSessionsCount(
+            sessionsResult.data.count ||
+              sessionsResult.data.sessions?.length ||
+              0,
+          );
         }
 
         // Get agent info if available
         // Using mock STRK balance since we don't have on-chain balance query yet
         setStrkBalance("245.67");
       } catch (error) {
-        console.error('Failed to fetch dashboard data:', error);
+        console.error("Failed to fetch dashboard data:", error);
       } finally {
         setLoading(false);
       }
