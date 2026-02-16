@@ -14,6 +14,9 @@ import agentRoutes from './routes/agents';
 import serviceRoutes from './routes/services';
 import auditorRoutes from './routes/auditors';
 import authRoutes from './routes/auth';
+import bitcoinRoutes from './routes/plugins/bitcoin';
+import zkproofRoutes from './routes/plugins/zkproof';
+import accountRoutes from './routes/plugins/account';
 
 // Import middleware
 import { errorHandler } from './middleware/errorHandler';
@@ -69,6 +72,9 @@ app.use('/api/v1/agents', agentRoutes);
 app.use('/api/v1/services', serviceRoutes);
 app.use('/api/v1/auditors', auditorRoutes);
 app.use('/api/v1/auth', authRoutes);
+app.use('/api/v1/plugins/bitcoin', bitcoinRoutes);
+app.use('/api/v1/plugins/zkproof', zkproofRoutes);
+app.use('/api/v1/plugins/account', accountRoutes);
 
 // 404 handler
 app.use((_req, res: Response) => {

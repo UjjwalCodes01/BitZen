@@ -48,7 +48,7 @@ export class StarknetService {
         return;
       }
 
-      this.account = new Account(this.provider, accountAddress, privateKey);
+      this.account = new Account(this.provider, accountAddress, privateKey, '1');
       
       // Connect contracts to account for write operations
       this.zkPassportContract.connect(this.account);
@@ -65,33 +65,84 @@ export class StarknetService {
    */
   async registerAgent(
     address: string,
-    proofData: string[],
-    publicInputs: string[]
+    _proofData: string[],
+    _publicInputs: string[]
   ): Promise<string> {
     try {
       if (!this.account) {
-        throw new AppError('Starknet account not initialized', 500);
+        throw new AppError('Starknet account not configured', 500);
       }
 
-      logger.info(`Registering agent on-chain: ${address}`);
+      logger.info(`Registering agent on ServiceRegistry: ${address}`);
 
-      const callData = CallData.compile({
-        agent_address: address,
-        proof_data: proofData,
-        public_inputs: publicInputs,
+      const stakeAmount = '1000000000000000000'; // 1 STRK
+      const strkTokenAddress = '0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d';
+
+      // Use address directly - CallData.compile handles string-to-felt conversion
+      logger.info(`Service registration with address: ${address}`);
+      logger.info(`ServiceRegistry contract address: ${this.serviceRegistryContract.address}`);
+
+      // Approve STRK tokens for ServiceRegistry
+      logger.info('About to compile approve calldata...');
+      const approveCallData = CallData.compile({
+        spender: this.serviceRegistryContract.address,
+        amount: { low: stakeAmount, high: '0' }
       });
+      logger.info(`Approve calldata compiled: ${JSON.stringify(approveCallData)}`);
 
-      const { transaction_hash } = await this.account.execute({
-        contractAddress: this.zkPassportContract.address,
-        entrypoint: 'register_agent',
-        calldata: callData,
+      // Prepare registration call - use address for all fields
+      logger.info('About to compile register calldata...');
+      const registerCallData = CallData.compile({
+        name: address,
+        description: address,
+        endpoint: address,
+        stake_amount: { low: stakeAmount, high: '0' },
       });
+      logger.info(`Register calldata compiled: ${JSON.stringify(registerCallData)}`);
 
-      logger.info(`Agent registration tx: ${transaction_hash}`);
+      const calls = [
+        {
+          contractAddress: strkTokenAddress,
+          entrypoint: 'approve',
+          calldata: approveCallData,
+        },
+        {
+          contractAddress: this.serviceRegistryContract.address,
+          entrypoint: 'register_service',
+          calldata: registerCallData,
+        }
+      ];
+
+      logger.info(`About to execute multicall with ${calls.length} calls`);
+      logger.info(`Call 1: ${calls[0].entrypoint} to ${calls[0].contractAddress}`);
+      logger.info(`Call 2: ${calls[1].entrypoint} to ${calls[1].contractAddress}`);
+      
+      // Execute with explicit V3 transaction specification
+      let transaction_hash;
+      try {
+        const result = await this.account.execute(calls, undefined, {
+          version: 3, // Explicitly use V3 transactions
+          skipValidate: false
+        });
+        transaction_hash = result.transaction_hash;
+        logger.info(`Execute successful, tx: ${transaction_hash}`);
+      } catch (executeError: any) {
+        logger.error('Execute failed with error:', {
+          message: executeError.message,
+          stack: executeError.stack,
+          name: executeError.name,
+          cause: executeError.cause
+        });
+        throw executeError;
+      }
+
+      logger.info(`Agent registered on ServiceRegistry, tx: ${transaction_hash}`);
       return transaction_hash;
-    } catch (error) {
-      logger.error('Failed to register agent:', error);
-      throw new AppError('Failed to register agent on-chain', 500);
+    } catch (error: any) {
+      logger.error('Failed to register agent:', error.message || String(error));
+      // Preserve original error message for better error handling upstream
+      const errorMessage = error.message || 'Failed to register agent on-chain';
+      throw new AppError(errorMessage, 500);
     }
   }
 

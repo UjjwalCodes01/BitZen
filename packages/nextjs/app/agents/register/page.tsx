@@ -4,6 +4,7 @@ import type { NextPage } from "next";
 import { useState } from "react";
 import { useAccount } from "@starknet-react/core";
 import { useRouter } from "next/navigation";
+import toast from "react-hot-toast";
 import {
   CheckCircleIcon,
   SparklesIcon,
@@ -24,6 +25,7 @@ const RegisterAgent: NextPage = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const [zkProofGenerated, setZkProofGenerated] = useState(false);
   const [zkProofGenerating, setZkProofGenerating] = useState(false);
+  const [zkProofData, setZkProofData] = useState<any>(null);
   const [agentName, setAgentName] = useState("");
   const [agentDescription, setAgentDescription] = useState("");
   const [agentCategory, setAgentCategory] = useState<string[]>([]);
@@ -41,28 +43,65 @@ const RegisterAgent: NextPage = () => {
   ];
 
   const handleGenerateZkProof = async () => {
+    if (!address) return;
+
     setZkProofGenerating(true);
+    const toastId = toast.loading("Generating ZK proof...");
     try {
-      // Simulate ZK proof generation
-      await new Promise((resolve) => setTimeout(resolve, 3000));
-      setZkProofGenerated(true);
-    } catch (error) {
-      console.error("ZK proof generation failed:", error);
+      // Call real ZKProof plugin API
+      const result = await zkproof.generate(address, { name: agentName || 'New Agent' });
+
+      if (result.success && result.data) {
+        setZkProofData(result.data);
+        setZkProofGenerated(true);
+        toast.success("ZK Proof generated successfully!", { id: toastId });
+      } else {
+        toast.error(result.error || "ZK Proof generation failed", { id: toastId });
+      }
+    } catch (error: any) {
+      toast.error(error.message || "ZK Proof generation failed", { id: toastId });
     } finally {
       setZkProofGenerating(false);
     }
   };
 
   const handleSubmit = async () => {
-    setSubmitting(true);
-    try {
-      // TODO: Call actual registerAgent function
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+    if (!address || !zkProofData) return;
 
-      // Show success and redirect
-      router.push("/dashboard");
-    } catch (error) {
-      console.error("Agent registration failed:", error);
+    setSubmitting(true);
+    const toastId = toast.loading("Registering agent...");
+    try {
+      // Verify the ZK proof on-chain
+      const verifyResult = await zkproof.verify(zkProofData.proof, zkProofData.publicInputs);
+
+      if (verifyResult.success) {
+        // Register agent with verified proof
+        const registerResult = await registerAgent(
+          zkProofData.publicInputs[1], // publicKey
+          zkProofData.proof,
+          {
+            name: agentName,
+            description: agentDescription,
+            categories: agentCategory,
+            proofId: zkProofData.proofId,
+            txHash: verifyResult.data?.txHash,
+          }
+        );
+
+        if (registerResult) {
+          toast.success(
+            `Agent registered successfully!\nProof ID: ${zkProofData.proofId}`,
+            { id: toastId, duration: 6000 }
+          );
+          router.push("/dashboard");
+        } else {
+          toast.error("Agent registration failed", { id: toastId });
+        }
+      } else {
+        toast.error("ZK Proof verification failed", { id: toastId });
+      }
+    } catch (error: any) {
+      toast.error(error.message || "Agent registration failed", { id: toastId });
     } finally {
       setSubmitting(false);
     }

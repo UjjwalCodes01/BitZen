@@ -138,6 +138,40 @@ class PluginService {
     }
   }
 
+  /**
+   * Get current exchange rates
+   */
+  async getExchangeRates(): Promise<ActionResult> {
+    try {
+      const response = await fetch(
+        `${BACKEND_URL}/api/v1/plugins/bitcoin/rates`,
+      );
+      return await response.json();
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.message || "Failed to get exchange rates",
+      };
+    }
+  }
+
+  /**
+   * Get current exchange rates
+   */
+  async getExchangeRates(): Promise<ActionResult> {
+    try {
+      const response = await fetch(
+        `${BACKEND_URL}/api/v1/plugins/bitcoin/rates`,
+      );
+      return await response.json();
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.message || "Failed to get exchange rates",
+      };
+    }
+  }
+
   // ==================== ZKPROOF PLUGIN ====================
 
   /**
@@ -172,14 +206,14 @@ class PluginService {
   /**
    * Verify ZK proof
    */
-  async verifyZKProof(proof: string): Promise<ActionResult> {
+  async verifyZKProof(proof: string, publicInputs?: string[]): Promise<ActionResult> {
     try {
       const response = await fetch(
         `${BACKEND_URL}/api/v1/plugins/zkproof/verify`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ proof }),
+          body: JSON.stringify({ proof, publicInputs: publicInputs || [] }),
         },
       );
 

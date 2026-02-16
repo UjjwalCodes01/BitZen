@@ -28,12 +28,10 @@ export const getRpcUrl = (networkName: string): string => {
       rpcUrl = devnetRpcUrl || "http://127.0.0.1:5050";
       break;
     case "sepolia":
-      rpcUrl =
-        sepoliaRpcUrl || "https://starknet-sepolia.public.blastapi.io/rpc/v0_9";
+      rpcUrl = sepoliaRpcUrl || "";
       break;
     case "mainnet":
-      rpcUrl =
-        mainnetRpcUrl || "https://starknet-mainnet.public.blastapi.io/rpc/v0_9";
+      rpcUrl = mainnetRpcUrl || "";
       break;
     default:
       rpcUrl = "http://127.0.0.1:5050";

@@ -1,7 +1,7 @@
 "use client";
 
 import type { NextPage } from "next";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAccount } from "@starknet-react/core";
 import {
   KeyIcon,
@@ -46,43 +46,42 @@ const Sessions: NextPage = () => {
   const [dailyLimit, setDailyLimit] = useState("10");
   const [weeklyLimit, setWeeklyLimit] = useState("50");
   const [totalLimit, setTotalLimit] = useState("200");
+  const [loading, setLoading] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [revoking, setRevoking] = useState<string | null>(null);
 
-  // Mock session keys data
-  const [sessions, setSessions] = useState<SessionKey[]>([
-    {
-      id: "0x1a2b3c4d",
-      address: "0x1a2b3c4d5e6f7g8h9i0j1k2l3m4n5o6p",
-      created: "Jan 20, 2026",
-      expires: "Feb 2, 2026",
-      daysLeft: 12,
-      permissions: ["transfer", "swap", "stake"],
-      actionsUsed: 45,
-      actionsLimit: 100,
-      status: "active",
-    },
-    {
-      id: "0x5e6f7g8h",
-      address: "0x5e6f7g8h9i0j1k2l3m4n5o6p7q8r9s0t",
-      created: "Jan 15, 2026",
-      expires: "Feb 10, 2026",
-      daysLeft: 25,
-      permissions: ["transfer", "vote"],
-      actionsUsed: 12,
-      actionsLimit: 50,
-      status: "active",
-    },
-    {
-      id: "0x9i0j1k2l",
-      address: "0x9i0j1k2l3m4n5o6p7q8r9s0t1u2v3w4x",
-      created: "Jan 25, 2026",
-      expires: "Jan 28, 2026",
-      daysLeft: 3,
-      permissions: ["transfer", "swap"],
-      actionsUsed: 78,
-      actionsLimit: 100,
-      status: "expiring",
-    },
-  ]);
+  // Fetch sessions when connected
+  const [sessions, setSessions] = useState<SessionKey[]>([]);
+
+  useEffect(() => {
+    const fetchSessions = async () => {
+      if (!address) return;
+
+      setLoading(true);
+      try {
+        const result = await account.listActiveSessions();
+        if (result.success && result.data?.sessions) {
+          const mappedSessions: SessionKey[] = result.data.sessions.map((s: any) => ({
+            id: s.sessionId,
+            address: s.publicKey || s.sessionId,
+            created: new Date(s.createdAt).toLocaleDateString(),
+            expires: new Date(s.expiresAt).toLocaleDateString(),
+            daysLeft: Math.max(0, Math.ceil((s.expiresAt - Date.now()) / (1000 * 60 * 60 * 24))),
+            permissions: s.permissions || [],
+            actionsUsed: s.usage?.transactionCount || 0,
+            actionsLimit: parseInt(s.spendingLimit?.daily || '100'),
+            status: s.isExpired ? 'expired' : (s.expiresAt - Date.now() < 3 * 24 * 60 * 60 * 1000 ? 'expiring' : 'active'),
+          }));
+          setSessions(mappedSessions);
+        }
+      } catch (error) {
+        console.error('Failed to fetch sessions:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchSessions();
+  }, [address, account]);
 
   const availablePermissions = [
     { id: "transfer", name: "Transfer Tokens", icon: CurrencyDollarIcon },
@@ -99,28 +98,69 @@ const Sessions: NextPage = () => {
     }
   };
 
-  const handleCreateSession = () => {
-    // TODO: Call actual createSessionKey function
-    const newSession: SessionKey = {
-      id: `0x${Math.random().toString(16).slice(2, 10)}`,
-      address: `0x${Math.random().toString(16).slice(2, 34)}`,
-      created: "Just now",
-      expires: `${expirationDays} days from now`,
-      daysLeft: expirationDays,
-      permissions: selectedPermissions,
-      actionsUsed: 0,
-      actionsLimit: Number(totalLimit),
-      status: "active",
-    };
-    setSessions([newSession, ...sessions]);
-    setShowCreateModal(false);
-    setSelectedPermissions([]);
-    setExpirationDays(7);
+  const handleCreateSession = async () => {
+    if (!address) return;
+
+    setCreating(true);
+    try {
+      // Call real Account plugin API
+      const result = await account.createSessionKey(
+        expirationDays * 480, // ~480 blocks per day
+        selectedPermissions,
+        {
+          dailyLimit,
+          transactionLimit: totalLimit,
+        }
+      );
+
+      if (result.success && result.data) {
+        const session = result.data;
+        const newSession: SessionKey = {
+          id: session.sessionId,
+          address: session.publicKey,
+          created: "Just now",
+          expires: new Date(session.expiresAt).toLocaleDateString(),
+          daysLeft: expirationDays,
+          permissions: session.permissions,
+          actionsUsed: 0,
+          actionsLimit: Number(dailyLimit),
+          status: "active",
+        };
+        setSessions([newSession, ...sessions]);
+        alert(`Session key created!\nSession ID: ${session.sessionId}\nPublic Key: ${session.publicKey.substring(0, 16)}...`);
+      } else {
+        alert("Failed to create session key. Please try again.");
+      }
+    } catch (error) {
+      console.error('Failed to create session:', error);
+      alert("Failed to create session key. Please try again.");
+    } finally {
+      setCreating(false);
+      setShowCreateModal(false);
+      setSelectedPermissions([]);
+      setExpirationDays(7);
+    }
   };
 
-  const handleRevokeSession = (sessionId: string) => {
-    if (confirm("Are you sure you want to revoke this session key?")) {
-      setSessions(sessions.filter((s) => s.id !== sessionId));
+  const handleRevokeSession = async (sessionId: string) => {
+    if (!confirm("Are you sure you want to revoke this session key?")) return;
+
+    setRevoking(sessionId);
+    try {
+      // Call real Account plugin API
+      const result = await account.revokeSessionKey(sessionId);
+
+      if (result.success) {
+        setSessions(sessions.filter((s) => s.id !== sessionId));
+        alert(`Session key revoked: ${sessionId}`);
+      } else {
+        alert("Failed to revoke session key. Please try again.");
+      }
+    } catch (error) {
+      console.error('Failed to revoke session:', error);
+      alert("Failed to revoke session key. Please try again.");
+    } finally {
+      setRevoking(null);
     }
   };
 

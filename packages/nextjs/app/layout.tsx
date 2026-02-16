@@ -3,6 +3,7 @@ import { ScaffoldStarkAppWithProviders } from "~~/components/ScaffoldStarkAppWit
 import "~~/styles/globals.css";
 import { ThemeProvider } from "~~/components/ThemeProvider";
 import { Footer } from "~~/components/bitizen/Footer";
+import { ToastProvider } from "~~/components/ToastProvider";
 
 export const metadata: Metadata = {
   title: "BitZen - AI Agent Marketplace on Starknet",
@@ -17,6 +18,7 @@ const ScaffoldStarkApp = ({ children }: { children: React.ReactNode }) => {
       <body suppressHydrationWarning>
         <ThemeProvider enableSystem>
           <ScaffoldStarkAppWithProviders>
+            <ToastProvider />
             {children}
             <Footer />
           </ScaffoldStarkAppWithProviders>

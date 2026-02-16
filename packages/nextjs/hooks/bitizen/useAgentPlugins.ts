@@ -67,6 +67,10 @@ export const useAgentPlugins = () => {
     return pluginService.getBitcoinBalance(btcAddress);
   }, []);
 
+  const getExchangeRates = useCallback(async () => {
+    return pluginService.getExchangeRates();
+  }, []);
+
   // ==================== ZKPROOF PLUGIN ====================
 
   const generateZKProof = useCallback(
@@ -141,6 +145,7 @@ export const useAgentPlugins = () => {
       executeSwap: executeBitcoinSwap,
       getSwapStatus: getBitcoinSwapStatus,
       getBalance: getBitcoinBalance,
+      getExchangeRates,
     },
 
     // ZKProof Plugin

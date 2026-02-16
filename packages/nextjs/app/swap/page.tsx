@@ -1,7 +1,7 @@
 "use client";
 
 import type { NextPage } from "next";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAccount } from "@starknet-react/core";
 import {
   ArrowsUpDownIcon,
@@ -28,10 +28,32 @@ const Swap: NextPage = () => {
   const [quoteLoading, setQuoteLoading] = useState(false);
   const [hasQuote, setHasQuote] = useState(false);
   const [swapping, setSwapping] = useState(false);
+  const [quoteId, setQuoteId] = useState<string | null>(null);
+  const [swapId, setSwapId] = useState<string | null>(null);
+  const [quoteData, setQuoteData] = useState<any>(null);
+  const [ratesLoading, setRatesLoading] = useState(true);
 
   // Mock balances
   const btcBalance = "0.05234";
   const strkBalance = "1,245.67";
+
+  // Fetch real exchange rates on mount
+  useEffect(() => {
+    const fetchRates = async () => {
+      setRatesLoading(true);
+      try {
+        const result = await bitcoin.getExchangeRates();
+        if (result.success && result.data) {
+          setExchangeRate(result.data.BTC_STRK);
+        }
+      } catch (error) {
+        console.error("Failed to fetch rates:", error);
+      } finally {
+        setRatesLoading(false);
+      }
+    };
+    fetchRates();
+  }, [bitcoin]);
 
   // Mock recent swaps
   const recentSwaps = [
@@ -87,38 +109,75 @@ const Swap: NextPage = () => {
   };
 
   const handleGetQuote = async () => {
+    if (!fromAmount || Number(fromAmount) <= 0) return;
+
     setQuoteLoading(true);
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-      setHasQuote(true);
+      // Call real Bitcoin plugin API
+      const result = await bitcoin.getQuote(
+        fromToken,
+        toToken,
+        fromAmount,
+      );
+
+      if (result.success && result.data) {
+        const quote = result.data;
+        setQuoteData(quote);
+        setQuoteId(quote.quoteId);
+        setToAmount(quote.total.toFixed(fromToken === "BTC" ? 2 : 8));
+        setHasQuote(true);
+      } else {
+        console.error("Failed to get quote:", result.error);
+        alert("Failed to get quote. Please try again.");
+      }
     } catch (error) {
       console.error("Failed to get quote:", error);
+      alert("Failed to get quote. Please try again.");
     } finally {
       setQuoteLoading(false);
     }
   };
 
   const handleExecuteSwap = async () => {
+    if (!quoteId || !address) return;
+
     setSwapping(true);
     try {
-      // TODO: Call actual swap function
-      await new Promise((resolve) => setTimeout(resolve, 3000));
+      // Call real Bitcoin plugin API to execute swap
+      const result = await bitcoin.executeSwap(
+        fromToken,
+        toToken,
+        fromAmount,
+        toToken === "BTC" ? (btcAddress || "") : address,
+      );
 
-      // Reset form
-      setFromAmount("");
-      setToAmount("");
-      setHasQuote(false);
+      if (result.success && result.data) {
+        const swap = result.data;
+        setSwapId(swap.swapId);
+        alert(`Swap initiated! Swap ID: ${swap.swapId}\nStatus: ${swap.status}\nEstimated completion: ${new Date(swap.estimatedCompletion).toLocaleString()}`);
+
+        // Reset form
+        setFromAmount("");
+        setToAmount("");
+        setHasQuote(false);
+        setQuoteId(null);
+        setQuoteData(null);
+      } else {
+        console.error("Swap failed:", result.error);
+        alert("Swap failed. Please try again.");
+      }
     } catch (error) {
       console.error("Swap failed:", error);
+      alert("Swap failed. Please try again.");
     } finally {
       setSwapping(false);
     }
   };
 
-  const networkFee = "0.0001 BTC";
-  const gardenFee = "0.5%";
-  const totalFees = fromToken === "BTC" ? "0.00015 BTC" : "0.68 STRK";
+  // Calculate fees from quote data
+  const networkFee = quoteData ? `${(quoteData.fee * 0.3).toFixed(8)} ${toToken}` : "0.0001 BTC";
+  const gardenFee = "0.3%";
+  const totalFees = quoteData ? `${quoteData.fee.toFixed(8)} ${toToken}` : (fromToken === "BTC" ? "0.00015 BTC" : "0.68 STRK");
 
   return (
     <div className="min-h-screen py-8 px-4">

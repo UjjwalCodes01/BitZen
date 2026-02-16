@@ -27,19 +27,54 @@ const Dashboard: NextPage = () => {
 
   const [strkBalance, setStrkBalance] = useState<string>("0");
   const [btcBalance, setBtcBalance] = useState<string>("0");
+  const [btcBalanceUSD, setBtcBalanceUSD] = useState<string>("0");
   const [sessionsCount, setSessionsCount] = useState<number>(0);
+  const [loading, setLoading] = useState(true);
+  const [exchangeRate, setExchangeRate] = useState<number>(45161);
 
   // Get the first registered agent (if any) - Mock for now
   const primaryAgent = null; // TODO: Get from agents hook when available
 
   useEffect(() => {
-    if (isConnected && address && isAuthenticated) {
-      // TODO: Fetch balances
-      setStrkBalance("245.67");
-      setBtcBalance("0.00234");
-      setSessionsCount(3);
-    }
-  }, [isConnected, address, isAuthenticated]);
+    const fetchDashboardData = async () => {
+      if (!isConnected || !address) {
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
+      try {
+        // Fetch exchange rates
+        const ratesResult = await bitcoin.getExchangeRates();
+        if (ratesResult.success && ratesResult.data) {
+          setExchangeRate(ratesResult.data.BTC_STRK);
+        }
+
+        // Fetch Bitcoin balance (mock BTC address for demo)
+        const btcResult = await bitcoin.getBalance('bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh');
+        if (btcResult.success && btcResult.data) {
+          setBtcBalance(btcResult.data.balance);
+          setBtcBalanceUSD(btcResult.data.balanceUSD);
+        }
+
+        // Fetch active sessions
+        const sessionsResult = await account.listActiveSessions();
+        if (sessionsResult.success && sessionsResult.data) {
+          setSessionsCount(sessionsResult.data.count || sessionsResult.data.sessions?.length || 0);
+        }
+
+        // Get agent info if available
+        // Using mock STRK balance since we don't have on-chain balance query yet
+        setStrkBalance("245.67");
+      } catch (error) {
+        console.error('Failed to fetch dashboard data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, [isConnected, address, bitcoin, account]);
 
   // Mock activity data
   const recentActivity = [
@@ -194,12 +229,18 @@ const Dashboard: NextPage = () => {
                       BITCOIN BALANCE
                     </h3>
                     <div className="text-2xl font-bold text-[var(--accent-orange)]">
-                      {btcBalance} BTC
+                      {loading ? "..." : btcBalance} BTC
+                    </div>
+                    <div className="text-sm text-[var(--text-muted)]">
+                      ≈ ${loading ? "..." : btcBalanceUSD} USD
                     </div>
                   </div>
                   <div className="w-12 h-12 rounded-full gradient-orange flex items-center justify-center">
                     <CurrencyDollarIcon className="w-6 h-6 text-white" />
                   </div>
+                </div>
+                <div className="text-xs text-[var(--text-muted)] mb-2">
+                  Rate: 1 BTC = {exchangeRate.toLocaleString()} STRK
                 </div>
                 <Link
                   href="/swap"

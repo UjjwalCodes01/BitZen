@@ -1,7 +1,5 @@
 "use client";
 
-import Link from "next/link";
-
 export const Footer = () => {
   return (
     <footer className="border-t border-[var(--border-color)] bg-[var(--bg-dark)] mt-20">
@@ -30,36 +28,36 @@ export const Footer = () => {
             </h3>
             <ul className="space-y-2">
               <li>
-                <Link
+                <a
                   href="/marketplace"
                   className="text-[var(--text-secondary)] hover:text-[var(--accent-purple)] transition-colors text-sm"
                 >
                   Marketplace
-                </Link>
+                </a>
               </li>
               <li>
-                <Link
+                <a
                   href="/swap"
                   className="text-[var(--text-secondary)] hover:text-[var(--accent-purple)] transition-colors text-sm"
                 >
                   Bitcoin Swap
-                </Link>
+                </a>
               </li>
               <li>
-                <Link
+                <a
                   href="/dashboard"
                   className="text-[var(--text-secondary)] hover:text-[var(--accent-purple)] transition-colors text-sm"
                 >
                   Dashboard
-                </Link>
+                </a>
               </li>
               <li>
-                <Link
+                <a
                   href="/agents/register"
                   className="text-[var(--text-secondary)] hover:text-[var(--accent-purple)] transition-colors text-sm"
                 >
                   Register Agent
-                </Link>
+                </a>
               </li>
             </ul>
           </div>

@@ -19,29 +19,61 @@ export class AgentController {
       throw new AppError('Validation failed', 400);
     }
 
-    const { address, proof_data, public_inputs } = req.body;
+    // Support both frontend format (publicKey, zkProof) and backend format (proof_data, public_inputs)
+    const { address, publicKey, zkProof, proof_data, public_inputs } = req.body;
 
     logger.info(`Registering agent: ${address}`);
 
-    // Register agent on-chain
-    const txHash = await starknetService.registerAgent(address, proof_data, public_inputs);
+    // Convert frontend format to backend format if needed
+    const proofData = proof_data || (zkProof ? [zkProof] : []);
+    const publicInputs = public_inputs || (publicKey ? [address, publicKey] : [address]);
 
-    // Save agent to database
-    const agent = await agentService.createAgent({
-      address,
-      tx_hash: txHash,
-      registered_at: new Date(),
-      is_verified: false // Will be verified after tx confirmation
-    });
+    try {
+      // Try on-chain registration first
+      const txHash = await starknetService.registerAgent(address, proofData, publicInputs);
+      
+      // Save agent to database with pending verification
+      const agent = await agentService.createAgent({
+        address,
+        tx_hash: txHash,
+        registered_at: new Date(),
+        is_verified: false // Will be verified after tx confirmation
+      });
 
-    res.status(201).json({
-      success: true,
-      message: 'Agent registration initiated',
-      data: {
-        agent,
-        tx_hash: txHash
+      res.status(201).json({
+        success: true,
+        message: 'Agent registration initiated on-chain',
+        data: {
+          agent,
+          tx_hash: txHash
+        }
+      });
+    } catch (onchainError: any) {
+      // If on-chain fails due to insufficient funds, register in DB only
+      if (onchainError.message?.includes('Overflow') || onchainError.message?.includes('Insufficient')) {
+        logger.warn(`On-chain registration failed (likely insufficient STRK): ${onchainError.message}`);
+        logger.info(`Registering agent in database only: ${address}`);
+        
+        const agent = await agentService.createAgent({
+          address,
+          tx_hash: null,
+          registered_at: new Date(),
+          is_verified: false
+        });
+
+        res.status(201).json({
+          success: true,
+          message: 'Agent registered in database. On-chain registration pending STRK tokens.',
+          data: {
+            agent,
+            note: 'Please get STRK tokens from https://starknet-faucet.vercel.app/ to complete on-chain registration'
+          }
+        });
+      } else {
+        // Re-throw other errors
+        throw onchainError;
       }
-    });
+    }
   });
 
   /**

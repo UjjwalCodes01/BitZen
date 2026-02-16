@@ -4,7 +4,7 @@ import { logger } from '../utils/logger';
 interface Agent {
   id?: number;
   address: string;
-  tx_hash: string;
+  tx_hash: string | null;
   registered_at: Date;
   is_verified: boolean;
   revoked_at?: Date;

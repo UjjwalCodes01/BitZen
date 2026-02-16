@@ -6,10 +6,20 @@ export const agentValidation = {
       .isString()
       .matches(/^0x[a-fA-F0-9]{63,64}$/)
       .withMessage('Invalid Starknet address'),
+    body('publicKey')
+      .optional()
+      .isString()
+      .withMessage('Public key must be a string'),
+    body('zkProof')
+      .optional()
+      .isString()
+      .withMessage('ZK proof must be a string'),
     body('proof_data')
+      .optional()
       .isArray()
       .withMessage('Proof data must be an array'),
     body('public_inputs')
+      .optional()
       .isArray()
       .withMessage('Public inputs must be an array'),
   ] as ValidationChain[],
