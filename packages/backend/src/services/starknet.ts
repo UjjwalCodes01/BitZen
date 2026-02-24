@@ -1,4 +1,4 @@
-import { Account, CallData, Contract, RpcProvider, num } from 'starknet';
+import { Account, CallData, Contract, RpcProvider } from 'starknet';
 import { logger } from '../utils/logger';
 import { AppError } from '../middleware/errorHandler';
 
@@ -14,8 +14,12 @@ export class StarknetService {
 
   constructor() {
     // Initialize provider
+    const rpcUrl = process.env.STARKNET_RPC_URL;
+    if (!rpcUrl) {
+      logger.warn('STARKNET_RPC_URL not set — falling back to public Sepolia RPC');
+    }
     this.provider = new RpcProvider({
-      nodeUrl: process.env.STARKNET_RPC_URL || 'https://starknet-sepolia.g.alchemy.com/starknet/version/rpc/v0_9',
+      nodeUrl: rpcUrl || 'https://free-rpc.nethermind.io/sepolia-juno',
     });
 
     // Initialize contracts
@@ -207,7 +211,7 @@ export class StarknetService {
         name,
         description,
         endpoint,
-        stake_amount: num.toHex(stakeAmount),
+        stake_amount: { low: String(stakeAmount), high: '0' },
       });
 
       const { transaction_hash } = await this.account.execute({
@@ -288,7 +292,7 @@ export class StarknetService {
 
       const callData = CallData.compile({
         service_id: serviceId,
-        amount: num.toHex(amount),
+        amount: { low: String(amount), high: '0' },
       });
 
       const { transaction_hash } = await this.account.execute({
@@ -346,7 +350,7 @@ export class StarknetService {
       const callData = CallData.compile({
         session_public_key: sessionPublicKey,
         expiration_block: expirationBlock,
-        max_spend_per_tx: num.toHex(maxSpendPerTx),
+        max_spend_per_tx: { low: String(maxSpendPerTx), high: '0' },
         allowed_methods: allowedMethods,
       });
 
@@ -390,3 +394,6 @@ export class StarknetService {
     }
   }
 }
+
+// Singleton instance — shared across all controllers to avoid redundant connections
+export const starknetService = new StarknetService();

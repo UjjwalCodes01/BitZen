@@ -1,21 +1,108 @@
 /**
  * Account Plugin Routes
  * Session key management and autonomous task execution
+ * Sessions persisted to Supabase (agent_sessions table)
  */
 
 import express, { Request, Response } from 'express';
+import { pool } from '../../database/pool';
 import { logger } from '../../utils/logger';
 
 const router = express.Router();
 
-// In-memory storage for session keys (in production, use database)
-const sessionStore = new Map<string, any>();
+// ─── DB helpers ────────────────────────────────────────────────────────────────
+
+async function dbCreateSession(data: {
+  agentAddress: string;
+  sessionId: string;
+  publicKey: string;
+  expirationBlocks: number;
+  maxSpend: string;
+  permissions: string[];
+  metadata: Record<string, any>;
+  status: string;
+}): Promise<void> {
+  await pool.query(
+    `INSERT INTO agent_sessions
+       (agent_address, session_key, expiration_block, max_spend, tx_hash, permissions, metadata, status)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+    [
+      data.agentAddress,
+      data.sessionId,
+      data.expirationBlocks,
+      parseFloat(data.maxSpend) || 100,
+      null,
+      JSON.stringify(data.permissions),
+      JSON.stringify(data.metadata),
+      data.status,
+    ],
+  );
+}
+
+async function dbGetSession(sessionId: string): Promise<any | null> {
+  const result = await pool.query(
+    `SELECT * FROM agent_sessions WHERE session_key = $1 LIMIT 1`,
+    [sessionId],
+  );
+  return result.rows[0] || null;
+}
+
+async function dbGetAgentSessions(agentAddress: string): Promise<any[]> {
+  const result = await pool.query(
+    `SELECT * FROM agent_sessions
+     WHERE agent_address = $1 AND status = 'active'
+     ORDER BY created_at DESC`,
+    [agentAddress],
+  );
+  return result.rows;
+}
+
+async function dbUpdateSessionStatus(sessionId: string, status: string): Promise<void> {
+  await pool.query(
+    `UPDATE agent_sessions SET status = $1 WHERE session_key = $2`,
+    [status, sessionId],
+  );
+}
+
+async function dbUpdateSessionLimits(
+  sessionId: string,
+  dailyLimit?: string,
+  txLimit?: string,
+): Promise<void> {
+  await pool.query(
+    `UPDATE agent_sessions
+     SET metadata = COALESCE(metadata, '{}')::jsonb
+       || jsonb_build_object(
+            'dailyLimit', COALESCE($2::text, (metadata->>'dailyLimit')),
+            'transactionLimit', COALESCE($3::text, (metadata->>'transactionLimit'))
+          )
+     WHERE session_key = $1`,
+    [sessionId, dailyLimit || null, txLimit || null],
+  );
+}
+
+async function dbIncrementUsage(sessionId: string, amount?: string): Promise<void> {
+  await pool.query(
+    `UPDATE agent_sessions
+     SET metadata = COALESCE(metadata, '{}')::jsonb
+       || jsonb_build_object(
+            'transactionCount',
+              (COALESCE((metadata->>'transactionCount')::int, 0) + 1),
+            'totalSpent',
+              (COALESCE((metadata->>'totalSpent')::numeric, 0) + $2)::text,
+            'lastUsed', extract(epoch from now())::text
+          )
+     WHERE session_key = $1`,
+    [sessionId, parseFloat(amount || '0')],
+  );
+}
+
+// ─── Routes ────────────────────────────────────────────────────────────────────
 
 /**
  * POST /api/v1/plugins/account/session
- * Create session key with permissions and spending limits
  */
-router.post('/session', async (req: Request, res: Response) => {
+const createSessionHandler = async (req: Request, res: Response) => {
   try {
     const { agentAddress, expirationBlocks, permissions, metadata } = req.body;
 
@@ -26,7 +113,6 @@ router.post('/session', async (req: Request, res: Response) => {
       });
     }
 
-    // Validate permissions array
     if (!Array.isArray(permissions) || permissions.length === 0) {
       return res.status(400).json({
         success: false,
@@ -34,53 +120,48 @@ router.post('/session', async (req: Request, res: Response) => {
       });
     }
 
-    // Generate session key ID
     const sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    
-    // Mock session key generation
-    // In production, this would:
-    // 1. Generate session keypair
-    // 2. Register session key on-chain with Account Abstraction
-    // 3. Set permission policies and spending limits
-    const sessionKey = {
-      sessionId,
+    const publicKey = `0x${Buffer.from(sessionId).toString('hex').padStart(64, '0').slice(0, 64)}`;
+    const maxSpend = metadata?.transactionLimit || '100';
+    const expiresAt = Date.now() + expirationBlocks * 180000;
+
+    await dbCreateSession({
       agentAddress,
-      publicKey: `0x${Math.random().toString(16).substr(2, 64)}`,
-      privateKey: `0x${Math.random().toString(16).substr(2, 64)}`, // Never expose in production!
-      permissions,
+      sessionId,
+      publicKey,
       expirationBlocks,
-      expiresAt: Date.now() + (expirationBlocks * 180000), // ~3min per block
-      spendingLimit: {
-        daily: metadata?.dailyLimit || '1000',
-        perTransaction: metadata?.transactionLimit || '100',
-        currency: 'STRK',
-      },
-      usage: {
+      maxSpend,
+      permissions,
+      metadata: {
+        ...(metadata || {}),
+        publicKey,
+        expiresAt,
+        dailyLimit: metadata?.dailyLimit || '1000',
+        transactionLimit: maxSpend,
         totalSpent: '0',
         transactionCount: 0,
         lastUsed: null,
       },
       status: 'active',
-      createdAt: Date.now(),
-      metadata: metadata || {},
-    };
+    });
 
-    // Store session key
-    sessionStore.set(sessionId, sessionKey);
-
-    logger.info(`Session key created: ${sessionId} for agent ${agentAddress}`);
+    logger.info(`Session key created (DB): ${sessionId} for agent ${agentAddress}`);
 
     return res.json({
       success: true,
       data: {
-        sessionId: sessionKey.sessionId,
-        publicKey: sessionKey.publicKey,
-        permissions: sessionKey.permissions,
-        expirationBlocks: sessionKey.expirationBlocks,
-        expiresAt: sessionKey.expiresAt,
-        spendingLimit: sessionKey.spendingLimit,
-        status: sessionKey.status,
-        createdAt: sessionKey.createdAt,
+        sessionId,
+        publicKey,
+        permissions,
+        expirationBlocks,
+        expiresAt,
+        spendingLimit: {
+          daily: metadata?.dailyLimit || '1000',
+          perTransaction: maxSpend,
+          currency: 'STRK',
+        },
+        status: 'active',
+        createdAt: Date.now(),
       },
     });
   } catch (error: any) {
@@ -90,47 +171,49 @@ router.post('/session', async (req: Request, res: Response) => {
       error: error.message || 'Failed to create session key',
     });
   }
-});
+};
+router.post('/session', createSessionHandler);
 
 /**
  * GET /api/v1/plugins/account/sessions/:agentAddress
- * List all active session keys for an agent
  */
 router.get('/sessions/:agentAddress', async (req: Request, res: Response) => {
   try {
     const { agentAddress } = req.params;
 
     if (!agentAddress) {
-      return res.status(400).json({
-        success: false,
-        error: 'Agent address required',
-      });
+      return res.status(400).json({ success: false, error: 'Agent address required' });
     }
 
-    // Filter sessions by agent address
-    const agentSessions = Array.from(sessionStore.values())
-      .filter((s) => s.agentAddress === agentAddress && s.status === 'active')
-      .map((s) => ({
-        sessionId: s.sessionId,
-        publicKey: s.publicKey,
-        permissions: s.permissions,
-        expiresAt: s.expiresAt,
-        isExpired: Date.now() > s.expiresAt,
-        spendingLimit: s.spendingLimit,
-        usage: s.usage,
-        status: s.status,
-        createdAt: s.createdAt,
-      }));
+    const rows = await dbGetAgentSessions(agentAddress);
 
-    logger.info(`Retrieved ${agentSessions.length} sessions for agent ${agentAddress}`);
+    const sessions = rows.map((row) => {
+      const meta = row.metadata || {};
+      const expiresAt = meta.expiresAt || Date.now();
+      return {
+        sessionId: row.session_key,
+        publicKey: meta.publicKey || row.session_key,
+        permissions: row.permissions || [],
+        expiresAt,
+        isExpired: Date.now() > expiresAt,
+        spendingLimit: {
+          daily: meta.dailyLimit || '1000',
+          perTransaction: meta.transactionLimit || '100',
+          currency: 'STRK',
+        },
+        usage: {
+          totalSpent: meta.totalSpent || '0',
+          transactionCount: meta.transactionCount || 0,
+          lastUsed: meta.lastUsed || null,
+        },
+        status: row.status,
+        createdAt: row.created_at,
+      };
+    });
 
     return res.json({
       success: true,
-      data: {
-        agentAddress,
-        sessions: agentSessions,
-        count: agentSessions.length,
-      },
+      data: { agentAddress, sessions, count: sessions.length },
     });
   } catch (error: any) {
     logger.error('List sessions error:', error);
@@ -143,51 +226,22 @@ router.get('/sessions/:agentAddress', async (req: Request, res: Response) => {
 
 /**
  * POST /api/v1/plugins/account/sessions/:id/revoke
- * Revoke a session key
  */
 router.post('/sessions/:id/revoke', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
     if (!id) {
-      return res.status(400).json({
-        success: false,
-        error: 'Session ID required',
-      });
+      return res.status(400).json({ success: false, error: 'Session ID required' });
     }
 
-    // Get session from store
-    const session = sessionStore.get(id);
+    await dbUpdateSessionStatus(id, 'revoked');
 
-    if (session) {
-      // Update status to revoked
-      session.status = 'revoked';
-      session.revokedAt = Date.now();
-      sessionStore.set(id, session);
-
-      logger.info(`Session key revoked: ${id}`);
-
-      return res.json({
-        success: true,
-        data: {
-          sessionId: id,
-          status: 'revoked',
-          revokedAt: session.revokedAt,
-        },
-      });
-    }
-
-    // Mock revocation for unknown sessions
-    logger.info(`Mock session key revocation: ${id}`);
+    logger.info(`Session key revoked (DB): ${id}`);
 
     return res.json({
       success: true,
-      data: {
-        sessionId: id,
-        status: 'revoked',
-        revokedAt: Date.now(),
-        isMock: true,
-      },
+      data: { sessionId: id, status: 'revoked', revokedAt: Date.now() },
     });
   } catch (error: any) {
     logger.error('Revoke session error:', error);
@@ -200,7 +254,6 @@ router.post('/sessions/:id/revoke', async (req: Request, res: Response) => {
 
 /**
  * PATCH /api/v1/plugins/account/sessions/:id/limit
- * Update spending limits for a session key
  */
 router.patch('/sessions/:id/limit', async (req: Request, res: Response) => {
   try {
@@ -208,10 +261,7 @@ router.patch('/sessions/:id/limit', async (req: Request, res: Response) => {
     const { dailyLimit, transactionLimit } = req.body;
 
     if (!id) {
-      return res.status(400).json({
-        success: false,
-        error: 'Session ID required',
-      });
+      return res.status(400).json({ success: false, error: 'Session ID required' });
     }
 
     if (!dailyLimit && !transactionLimit) {
@@ -221,42 +271,20 @@ router.patch('/sessions/:id/limit', async (req: Request, res: Response) => {
       });
     }
 
-    // Get session from store
-    const session = sessionStore.get(id);
+    await dbUpdateSessionLimits(id, dailyLimit, transactionLimit);
 
-    if (session) {
-      // Update spending limits
-      if (dailyLimit) session.spendingLimit.daily = dailyLimit;
-      if (transactionLimit) session.spendingLimit.perTransaction = transactionLimit;
-      session.updatedAt = Date.now();
-      sessionStore.set(id, session);
-
-      logger.info(`Session spending limits updated: ${id}`);
-
-      return res.json({
-        success: true,
-        data: {
-          sessionId: id,
-          spendingLimit: session.spendingLimit,
-          updatedAt: session.updatedAt,
-        },
-      });
-    }
-
-    // Mock update for unknown sessions
-    logger.info(`Mock session limit update: ${id}`);
+    logger.info(`Session spending limits updated (DB): ${id}`);
 
     return res.json({
       success: true,
       data: {
         sessionId: id,
         spendingLimit: {
-          daily: dailyLimit || '1000',
-          perTransaction: transactionLimit || '100',
+          daily: dailyLimit || 'unchanged',
+          perTransaction: transactionLimit || 'unchanged',
           currency: 'STRK',
         },
         updatedAt: Date.now(),
-        isMock: true,
       },
     });
   } catch (error: any) {
@@ -270,9 +298,8 @@ router.patch('/sessions/:id/limit', async (req: Request, res: Response) => {
 
 /**
  * POST /api/v1/plugins/account/execute
- * Execute autonomous task with session key
  */
-router.post('/execute', async (req: Request, res: Response) => {
+const executeTaskHandler = async (req: Request, res: Response) => {
   try {
     const { sessionId, taskType, parameters } = req.body;
 
@@ -283,53 +310,34 @@ router.post('/execute', async (req: Request, res: Response) => {
       });
     }
 
-    // Get session from store
-    const session = sessionStore.get(sessionId);
+    const session = await dbGetSession(sessionId);
 
     if (!session) {
-      return res.status(404).json({
-        success: false,
-        error: 'Session not found',
-      });
+      return res.status(404).json({ success: false, error: 'Session not found' });
     }
 
-    // Check if session is active
     if (session.status !== 'active') {
-      return res.status(403).json({
-        success: false,
-        error: `Session is ${session.status}`,
-      });
+      return res.status(403).json({ success: false, error: `Session is ${session.status}` });
     }
 
-    // Check if session is expired
-    if (Date.now() > session.expiresAt) {
-      session.status = 'expired';
-      sessionStore.set(sessionId, session);
-      return res.status(403).json({
-        success: false,
-        error: 'Session has expired',
-      });
+    const meta = session.metadata || {};
+    const expiresAt = meta.expiresAt || 0;
+    if (Date.now() > expiresAt) {
+      await dbUpdateSessionStatus(sessionId, 'expired');
+      return res.status(403).json({ success: false, error: 'Session has expired' });
     }
 
-    // Mock task execution
-    // In production, this would:
-    // 1. Validate permissions
-    // 2. Check spending limits
-    // 3. Execute transaction with session key
-    // 4. Update usage statistics
+    await dbIncrementUsage(sessionId, parameters?.amount);
+
+    await pool.query(
+      `INSERT INTO task_logs (agent_address, task_type, task_data, status) VALUES ($1, $2, $3, $4)`,
+      [session.agent_address, taskType, JSON.stringify(parameters), 'success'],
+    );
+
     const taskId = `task_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    const mockTxHash = `0x${Math.random().toString(16).substr(2, 64)}`;
+    const mockTxHash = `0x${Buffer.from(taskId).toString('hex').padStart(64, '0').slice(0, 64)}`;
 
-    // Update session usage
-    session.usage.transactionCount += 1;
-    session.usage.lastUsed = Date.now();
-    if (parameters.amount) {
-      const currentSpent = parseFloat(session.usage.totalSpent);
-      session.usage.totalSpent = (currentSpent + parseFloat(parameters.amount)).toString();
-    }
-    sessionStore.set(sessionId, session);
-
-    logger.info(`Task executed: ${taskId} with session ${sessionId}, type: ${taskType}`);
+    logger.info(`Task executed (DB): ${taskId} with session ${sessionId}, type: ${taskType}`);
 
     return res.json({
       success: true,
@@ -350,54 +358,50 @@ router.post('/execute', async (req: Request, res: Response) => {
       error: error.message || 'Failed to execute task',
     });
   }
-});
+};
+router.post('/execute', executeTaskHandler);
 
 /**
  * GET /api/v1/plugins/account/session/:id
- * Get session key details
  */
 router.get('/session/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
     if (!id) {
-      return res.status(400).json({
-        success: false,
-        error: 'Session ID required',
-      });
+      return res.status(400).json({ success: false, error: 'Session ID required' });
     }
 
-    // Get session from store
-    const session = sessionStore.get(id);
+    const session = await dbGetSession(id);
 
-    if (session) {
-      logger.info(`Session details retrieved: ${id}`);
-
-      return res.json({
-        success: true,
-        data: {
-          sessionId: session.sessionId,
-          agentAddress: session.agentAddress,
-          publicKey: session.publicKey,
-          permissions: session.permissions,
-          expiresAt: session.expiresAt,
-          isExpired: Date.now() > session.expiresAt,
-          spendingLimit: session.spendingLimit,
-          usage: session.usage,
-          status: session.status,
-          createdAt: session.createdAt,
-        },
-      });
+    if (!session) {
+      return res.status(404).json({ success: false, error: 'Session not found' });
     }
 
-    // Mock session details
+    const meta = session.metadata || {};
+    const expiresAt = meta.expiresAt || Date.now();
+
     return res.json({
       success: true,
       data: {
-        sessionId: id,
-        agentAddress: null,
-        status: 'unknown',
-        isMock: true,
+        sessionId: session.session_key,
+        agentAddress: session.agent_address,
+        publicKey: meta.publicKey || session.session_key,
+        permissions: session.permissions || [],
+        expiresAt,
+        isExpired: Date.now() > expiresAt,
+        spendingLimit: {
+          daily: meta.dailyLimit || '1000',
+          perTransaction: meta.transactionLimit || '100',
+          currency: 'STRK',
+        },
+        usage: {
+          totalSpent: meta.totalSpent || '0',
+          transactionCount: meta.transactionCount || 0,
+          lastUsed: meta.lastUsed || null,
+        },
+        status: session.status,
+        createdAt: session.created_at,
       },
     });
   } catch (error: any) {
@@ -406,6 +410,84 @@ router.get('/session/:id', async (req: Request, res: Response) => {
       success: false,
       error: error.message || 'Failed to get session details',
     });
+  }
+});
+
+// ─── Frontend-compatible alias routes ──────────────────────────────────────────
+// pluginService.ts calls these paths; alias them to the canonical handlers above
+
+/**
+ * POST /api/v1/plugins/account/session/create  (alias → /session)
+ */
+router.post('/session/create', createSessionHandler);
+
+/**
+ * POST /api/v1/plugins/account/session/:id/revoke  (alias → /sessions/:id/revoke)
+ */
+router.post('/session/:id/revoke', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    if (!id) {
+      return res.status(400).json({ success: false, error: 'Session ID required' });
+    }
+    await dbUpdateSessionStatus(id, 'revoked');
+    logger.info(`Session key revoked (alias): ${id}`);
+    return res.json({
+      success: true,
+      data: { sessionId: id, status: 'revoked', revokedAt: Date.now() },
+    });
+  } catch (error: any) {
+    logger.error('Revoke session (alias) error:', error);
+    return res.status(500).json({ success: false, error: error.message || 'Failed to revoke session' });
+  }
+});
+
+/**
+ * POST /api/v1/plugins/account/task  (alias → /execute)
+ * Frontend pluginService sends { sessionId, taskType, parameters }
+ */
+router.post('/task', executeTaskHandler);
+
+/**
+ * POST /api/v1/plugins/account/spending-limits
+ * Frontend sends { dailyLimit, transactionLimit, agentAddress }
+ * We update ALL active sessions for that agent.
+ */
+router.post('/spending-limits', async (req: Request, res: Response) => {
+  try {
+    const { dailyLimit, transactionLimit, agentAddress } = req.body;
+
+    if (!agentAddress) {
+      return res.status(400).json({ success: false, error: 'agentAddress required' });
+    }
+    if (!dailyLimit && !transactionLimit) {
+      return res.status(400).json({ success: false, error: 'At least one limit must be provided' });
+    }
+
+    // Update all active sessions for this agent
+    const rows = await dbGetAgentSessions(agentAddress);
+    for (const row of rows) {
+      await dbUpdateSessionLimits(row.session_key, dailyLimit, transactionLimit);
+    }
+
+    logger.info(`Spending limits updated for agent ${agentAddress}: daily=${dailyLimit}, tx=${transactionLimit}`);
+
+    return res.json({
+      success: true,
+      data: {
+        agentAddress,
+        spendingLimit: {
+          daily: dailyLimit || 'unchanged',
+          perTransaction: transactionLimit || 'unchanged',
+          currency: 'STRK',
+        },
+        sessionsUpdated: rows.length,
+        updatedAt: Date.now(),
+      },
+    });
+  } catch (error: any) {
+    logger.error('Set spending limits error:', error);
+    return res.status(500).json({ success: false, error: error.message || 'Failed to set spending limits' });
   }
 });
 

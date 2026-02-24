@@ -45,9 +45,4 @@ export const logger = winston.createLogger({
   ]
 });
 
-// If not in production, log to console with colorized output
-if (process.env.NODE_ENV !== 'production') {
-  logger.add(new winston.transports.Console({
-    format: consoleFormat
-  }));
-}
+// Console transport is already included above with colorized output

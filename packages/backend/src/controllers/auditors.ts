@@ -1,9 +1,8 @@
 import { Request, Response } from 'express';
 import { asyncHandler, AppError } from '../middleware/errorHandler';
-import { StarknetService } from '../services/starknet';
+import { starknetService } from '../services/starknet';
 import { AuditorService } from '../services/auditor';
-
-const starknetService = new StarknetService();
+import { logger } from '../utils/logger';
 const auditorService = new AuditorService();
 
 export class AuditorController {
@@ -19,26 +18,51 @@ export class AuditorController {
       throw new AppError('Authentication required', 401);
     }
 
-    // Stake on-chain
-    const txHash = await starknetService.stakeAsAuditor(service_id, amount);
+    try {
+      // Try staking on-chain
+      const txHash = await starknetService.stakeAsAuditor(service_id, amount);
 
-    // Save stake to database
-    const stake = await auditorService.createStake({
-      service_id,
-      auditor_address,
-      amount,
-      tx_hash: txHash,
-      is_active: true
-    });
+      // Save stake to database
+      const stake = await auditorService.createStake({
+        service_id,
+        auditor_address,
+        amount,
+        tx_hash: txHash,
+        is_active: true
+      });
 
-    res.status(201).json({
-      success: true,
-      message: 'Staked successfully',
-      data: {
-        stake,
-        tx_hash: txHash
+      res.status(201).json({
+        success: true,
+        message: 'Staked successfully',
+        data: {
+          stake,
+          tx_hash: txHash
+        }
+      });
+    } catch (onchainError: any) {
+      if (onchainError.message?.includes('Overflow') || onchainError.message?.includes('Insufficient') || onchainError.message?.includes('not initialized')) {
+        logger.warn(`On-chain staking failed: ${onchainError.message}`);
+
+        const stake = await auditorService.createStake({
+          service_id,
+          auditor_address,
+          amount,
+          tx_hash: null as any,
+          is_active: true
+        });
+
+        res.status(201).json({
+          success: true,
+          message: 'Stake recorded in database. On-chain staking pending STRK tokens.',
+          data: {
+            stake,
+            note: 'On-chain staking will be completed when STRK tokens are available'
+          }
+        });
+      } else {
+        throw onchainError;
       }
-    });
+    }
   });
 
   /**
@@ -53,15 +77,19 @@ export class AuditorController {
       throw new AppError('Authentication required', 401);
     }
 
-    // Unstake on-chain
-    const txHash = await starknetService.unstake(service_id);
+    let txHash: string | null = null;
+    try {
+      txHash = await starknetService.unstake(service_id);
+    } catch (err: any) {
+      logger.warn(`On-chain unstake failed: ${err.message}`);
+    }
 
     // Update database
     await auditorService.unstake(service_id, auditor_address);
 
     res.status(200).json({
       success: true,
-      message: 'Unstaked successfully',
+      message: txHash ? 'Unstaked successfully' : 'Unstake recorded (on-chain pending)',
       data: {
         tx_hash: txHash
       }

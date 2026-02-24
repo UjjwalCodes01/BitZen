@@ -1,11 +1,9 @@
 import { Request, Response } from 'express';
 import { validationResult } from 'express-validator';
 import { asyncHandler, AppError } from '../middleware/errorHandler';
-import { StarknetService } from '../services/starknet';
+import { starknetService } from '../services/starknet';
 import { AgentService } from '../services/agent';
 import { logger } from '../utils/logger';
-
-const starknetService = new StarknetService();
 const agentService = new AgentService();
 
 export class AgentController {

@@ -1,0 +1,19 @@
+   ▲ Next.js 15.2.6
+   - Local:        http://localhost:3000
+   - Network:      http://10.11.102.1:3000
+   - Environments: .env
+
+ ✓ Starting...
+> [PWA] PWA support is disabled
+> [PWA] PWA support is disabled
+ ✓ Ready in 3.8s
+ ○ Compiling / ...
+/*! 🌼 daisyUI 5.5.17 */
+ ✓ Compiled / in 13.7s (2692 modules)
+ ○ Compiling /api/price ...
+ ✓ Compiled /api/price in 1924ms (2699 modules)
+ ○ Compiling /marketplace ...
+ ✓ Compiled /marketplace in 950ms (2700 modules)
+ ○ Compiling /service/[id] ...
+ ✓ Compiled /service/[id] in 821ms (2723 modules)
+[?25h

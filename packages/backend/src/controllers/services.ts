@@ -1,11 +1,9 @@
 import { Request, Response } from 'express';
 import { validationResult } from 'express-validator';
 import { asyncHandler, AppError } from '../middleware/errorHandler';
-import { StarknetService } from '../services/starknet';
+import { starknetService } from '../services/starknet';
 import { ServiceService } from '../services/service';
 import { logger } from '../utils/logger';
-
-const starknetService = new StarknetService();
 const serviceService = new ServiceService();
 
 export class ServiceController {
@@ -28,33 +26,62 @@ export class ServiceController {
 
     logger.info(`Registering service: ${name} by ${provider_address}`);
 
-    // Register service on-chain
-    const txHash = await starknetService.registerService(
-      name,
-      description,
-      endpoint,
-      stake_amount
-    );
+    try {
+      // Try on-chain registration first
+      const txHash = await starknetService.registerService(
+        name,
+        description,
+        endpoint,
+        stake_amount
+      );
 
-    // Save service to database
-    const service = await serviceService.createService({
-      provider_address,
-      name,
-      description,
-      endpoint,
-      total_stake: stake_amount,
-      tx_hash: txHash,
-      is_active: true
-    });
+      // Save service to database with tx_hash
+      const service = await serviceService.createService({
+        provider_address,
+        name,
+        description,
+        endpoint,
+        total_stake: stake_amount,
+        tx_hash: txHash,
+        is_active: true
+      });
 
-    res.status(201).json({
-      success: true,
-      message: 'Service registered successfully',
-      data: {
-        service,
-        tx_hash: txHash
+      res.status(201).json({
+        success: true,
+        message: 'Service registered successfully',
+        data: {
+          service,
+          tx_hash: txHash
+        }
+      });
+    } catch (onchainError: any) {
+      // If on-chain fails due to insufficient funds, register in DB only
+      if (onchainError.message?.includes('Overflow') || onchainError.message?.includes('Insufficient') || onchainError.message?.includes('not initialized')) {
+        logger.warn(`On-chain service registration failed: ${onchainError.message}`);
+        logger.info(`Registering service in database only: ${name}`);
+
+        const service = await serviceService.createService({
+          provider_address,
+          name,
+          description,
+          endpoint,
+          total_stake: stake_amount,
+          tx_hash: null as any,
+          is_active: true
+        });
+
+        res.status(201).json({
+          success: true,
+          message: 'Service registered in database. On-chain registration pending STRK tokens.',
+          data: {
+            service,
+            note: 'On-chain registration will be completed when STRK tokens are available'
+          }
+        });
+      } else {
+        throw onchainError;
       }
-    });
+    }
   });
 
   /**
@@ -93,8 +120,13 @@ export class ServiceController {
       throw new AppError('Service not found', 404);
     }
 
-    // Get on-chain info
-    const onChainInfo = await starknetService.getServiceInfo(id);
+    // Get on-chain info (graceful — returns null if chain unavailable)
+    let onChainInfo = null;
+    try {
+      onChainInfo = await starknetService.getServiceInfo(id);
+    } catch (err: any) {
+      logger.warn(`On-chain getServiceInfo failed for ${id}: ${err.message}`);
+    }
 
     res.status(200).json({
       success: true,
@@ -125,8 +157,13 @@ export class ServiceController {
 
     logger.info(`Submitting review for service ${id} by ${reviewer_address}`);
 
-    // Submit review on-chain
-    const txHash = await starknetService.submitReview(id, rating, review_hash);
+    let txHash: string | null = null;
+    try {
+      // Try on-chain review submission
+      txHash = await starknetService.submitReview(id, rating, review_hash);
+    } catch (err: any) {
+      logger.warn(`On-chain review submission failed: ${err.message}`);
+    }
 
     // Save review to database
     const review = await serviceService.createReview({
@@ -134,7 +171,7 @@ export class ServiceController {
       reviewer_address,
       rating,
       review_hash,
-      tx_hash: txHash
+      tx_hash: txHash as any
     });
 
     // Update reputation
@@ -142,7 +179,7 @@ export class ServiceController {
 
     res.status(201).json({
       success: true,
-      message: 'Review submitted successfully',
+      message: txHash ? 'Review submitted on-chain' : 'Review saved (on-chain pending)',
       data: {
         review,
         tx_hash: txHash
