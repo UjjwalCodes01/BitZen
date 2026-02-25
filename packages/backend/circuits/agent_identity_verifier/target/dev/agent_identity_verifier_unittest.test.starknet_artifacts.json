@@ -1,0 +1,1 @@
+{"version":1,"contracts":[{"id":"q0o2e6k2bsmfe","package_name":"agent_identity_verifier","contract_name":"Groth16VerifierBN254","module_path":"agent_identity_verifier::groth16_verifier::Groth16VerifierBN254","artifacts":{"sierra":"agent_identity_verifier_unittest_Groth16VerifierBN254.test.contract_class.json","casm":null}}]}

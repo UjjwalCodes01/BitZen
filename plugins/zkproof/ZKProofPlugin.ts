@@ -1,8 +1,9 @@
 /**
- * ZKProof Plugin - Garaga Integration
- * 
- * Enables ZK proof generation and verification for AI agents
- * Critical for Privacy track hackathon prize
+ * ZKProof Plugin - Real Groth16 Garaga Integration
+ *
+ * Calls the backend /api/v1/plugins/zkproof/* endpoints which run
+ * a real snarkjs Groth16 prover over the agent_identity.circom circuit
+ * and produce Garaga calldata for on-chain BN254 pairing verification.
  */
 
 import {
@@ -13,7 +14,6 @@ import {
   ActionResult,
   ZKProof
 } from '../types';
-import { Account, hash, ec, CallData } from 'starknet';
 
 export interface ZKProofPluginConfig {
   verifierType: 's2' | 'garaga';
@@ -136,55 +136,61 @@ export class ZKProofPlugin implements Plugin {
   }
 
   /**
-   * Generate ZK proof for agent identity
+   * Generate a real Groth16 ZK proof for agent identity.
+   *
+   * Delegates to the backend /api/v1/plugins/zkproof/generate endpoint
+   * which runs snarkjs.groth16.fullProve() over agent_identity.circom
+   * and converts the proof to Garaga calldata for on-chain verification.
    */
   private async generateProof(params: any): Promise<ActionResult> {
-    const { agentAddress, message } = params;
+    const { agentAddress, secret } = params;
+
+    if (!agentAddress) {
+      return { success: false, error: 'agentAddress is required' };
+    }
 
     try {
-      // In production, this would call Garaga SDK
-      // For hackathon demo, we generate a mock proof
-      
-      const timestamp = Math.floor(Date.now() / 1000);
-      const expiresAt = timestamp + this.config.proofExpiration;
+      const response = await fetch(
+        `${this.config.backendUrl}/api/v1/plugins/zkproof/generate`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ agentAddress, secret })
+        }
+      );
 
-      // Create proof data
-      const proofData = {
-        agentAddress,
-        message: message || 'Agent identity verification',
-        timestamp,
-        expiresAt,
-        verifierType: this.config.verifierType
-      };
+      const body = await response.json() as any;
 
-      // Generate proof hash (simplified for demo)
-      const proofString = JSON.stringify(proofData);
-      const proofHash = hash.computeHashOnElements([
-        agentAddress,
-        timestamp.toString(),
-        expiresAt.toString()
-      ]);
+      if (!response.ok || !body.success) {
+        throw new Error(body.error || `HTTP ${response.status}`);
+      }
 
-      // In production: Call Garaga prover
-      // const proof = await garagaSDK.generateProof(proofData);
-      
+      const { proofId, proof, publicSignals, calldata, commitment, expiresAt } = body.data;
+
       const zkProof: ZKProof = {
-        proof: proofHash,
-        publicInputs: [agentAddress, timestamp.toString()],
+        proof: JSON.stringify(proof),
+        publicInputs: publicSignals,
         verifierType: this.config.verifierType,
-        timestamp,
+        timestamp: Math.floor(Date.now() / 1000),
         expiresAt
       };
 
-      this.context.logger?.info('ZK proof generated', {
+      this.context.logger?.info('Real Groth16 ZK proof generated', {
         agentAddress,
-        proofHash,
-        expiresAt: new Date(expiresAt * 1000).toISOString()
+        proofId,
+        commitment,
+        expiresAt: new Date(expiresAt * 1000).toISOString(),
+        calldataLen: calldata?.length
       });
 
       return {
         success: true,
-        data: zkProof,
+        data: {
+          ...zkProof,
+          proofId,
+          calldata, // Garaga full_proof_with_hints for on-chain verification
+          commitment
+        },
         metadata: {
           validUntil: new Date(expiresAt * 1000).toISOString(),
           verifierType: this.config.verifierType
@@ -200,48 +206,49 @@ export class ZKProofPlugin implements Plugin {
   }
 
   /**
-   * Verify ZK proof using Garaga verifier
+   * Verify a Groth16 ZK proof using snarkjs local verification.
+   *
+   * Delegates to the backend /api/v1/plugins/zkproof/verify endpoint.
    */
   private async verifyProof(params: any): Promise<ActionResult> {
-    const { proof, publicInputs } = params;
+    const { proof, publicSignals } = params;
+
+    if (!proof || !publicSignals) {
+      return { success: false, error: 'proof and publicSignals are required' };
+    }
 
     try {
-      // In production, call Garaga verifier contract
-      // For hackathon demo, perform basic validation
+      const response = await fetch(
+        `${this.config.backendUrl}/api/v1/plugins/zkproof/verify`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            proof: typeof proof === 'string' ? JSON.parse(proof) : proof,
+            publicSignals
+          })
+        }
+      );
 
-      // Check proof format
-      if (!proof || proof.length < 10) {
-        throw new Error('Invalid proof format');
+      const body = await response.json() as any;
+
+      if (!response.ok || !body.success) {
+        throw new Error(body.error || `HTTP ${response.status}`);
       }
 
-      // Check public inputs
-      if (!Array.isArray(publicInputs) || publicInputs.length === 0) {
-        throw new Error('Invalid public inputs');
-      }
+      const { isValid, agentAddress, commitment, expiresAt, expired } = body.data;
 
-      // Extract timestamp from public inputs
-      const timestamp = parseInt(publicInputs[1]);
-      const currentTime = Math.floor(Date.now() / 1000);
-
-      // Check if proof is expired
-      const expiresAt = timestamp + this.config.proofExpiration;
-      const isValid = currentTime < expiresAt;
-
-      this.context.logger?.info('ZK proof verification', {
-        proof: proof.substring(0, 20) + '...',
-        isValid,
-        expiresAt: new Date(expiresAt * 1000).toISOString()
-      });
+      this.context.logger?.info('ZK proof verification result', { isValid, agentAddress });
 
       return {
         success: true,
         data: {
           isValid,
-          agentAddress: publicInputs[0],
-          timestamp,
+          agentAddress,
+          commitment,
           expiresAt,
-          currentTime,
-          reason: isValid ? 'Valid proof' : 'Proof expired'
+          expired,
+          reason: isValid ? 'Valid Groth16 proof' : 'Invalid proof'
         }
       };
     } catch (error: any) {

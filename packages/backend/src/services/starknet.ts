@@ -15,7 +15,7 @@ export class StarknetService {
   constructor() {
     // Initialize provider
     this.provider = new RpcProvider({
-      nodeUrl: process.env.STARKNET_RPC_URL || 'https://starknet-sepolia.g.alchemy.com/starknet/version/rpc/v0_10/oX6CVMWKcDva93Z4ZrmZ1',
+      nodeUrl: process.env.STARKNET_RPC_URL || 'https://rpc.starknet-testnet.lava.build',
     });
 
     // Initialize contracts
@@ -61,46 +61,43 @@ export class StarknetService {
   }
 
   /**
-   * Register an agent with ZK proof on ZKPassport contract
-   * proof_data must have >= 8 felt252 elements (a,b,c components of Groth16 proof)
-   * public_inputs must have >= 1 felt252 element
+   * Register an agent with a real Groth16 ZK proof on ZKPassport contract.
+   *
+   * @param address     - Agent Starknet address (felt252)
+   * @param proofData   - Garaga full_proof_with_hints calldata (Span<felt252>)
+   *                      These are the felt252 elements produced by `garaga calldata --system groth16`.
+   *                      Public inputs are embedded inside this array.
+   * @param publicInputs - Must be empty [] for Garaga Groth16 (inputs are in full_proof_with_hints)
    */
   async registerAgent(
     address: string,
     proofData: string[],
-    publicInputs: string[]
+    _publicInputs: string[]  // kept for API compatibility; Garaga embeds public inputs in proofData
   ): Promise<string> {
     try {
       if (!this.account) {
         throw new AppError('Starknet account not configured', 500);
       }
 
+      if (!proofData || proofData.length === 0) {
+        throw new AppError('proofData must contain Garaga full_proof_with_hints elements', 400);
+      }
+
       logger.info(`Registering agent on ZKPassport: ${address}`);
+      logger.info(`Proof calldata elements: ${proofData.length}`);
 
-      // Ensure proof meets MockGaragaVerifier minimum requirements:
-      // proof_data must have >= 8 elements, public_inputs >= 1 element
-      const normalizedProof = proofData.length >= 8
-        ? proofData
-        : [...proofData, ...Array(8 - proofData.length).fill('0x1')];
-
-      const normalizedInputs = publicInputs.length >= 1
-        ? publicInputs
-        : [address]; // Use agent address as default public input
-
-      logger.info(`Proof elements: ${normalizedProof.length}, public inputs: ${normalizedInputs.length}`);
-
-      // Build calldata for ZKPassport.register_agent(agent_address, proof_data, public_inputs)
-      // Starknet Span<felt252> is serialized as: [len, elem0, elem1, ...]
+      // For Garaga Groth16: proof_data = full_proof_with_hints, public_inputs = []
+      // Starknet Span<felt252> serialization: [len, elem0, elem1, ...]
       const calldata = [
-        address,                               // agent_address
-        normalizedProof.length.toString(),      // proof_data length
-        ...normalizedProof,                    // proof_data elements
-        normalizedInputs.length.toString(),    // public_inputs length
-        ...normalizedInputs,                   // public_inputs elements
+        address,                               // agent_address (felt252)
+        proofData.length.toString(),           // proof_data Span length
+        ...proofData,                          // proof_data elements (full_proof_with_hints)
+        '0',                                   // public_inputs Span length = 0
+        // no public_inputs elements (embedded in proof_data for Garaga)
       ];
 
       logger.info(`ZKPassport address: ${this.zkPassportContract.address}`);
-      logger.info(`Calldata length: ${calldata.length}`);
+      logger.info(`Total calldata length: ${calldata.length}`);
 
       const result = await this.account.execute({
         contractAddress: this.zkPassportContract.address,

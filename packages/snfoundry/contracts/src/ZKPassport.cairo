@@ -31,13 +31,16 @@ pub trait IZKPassport<TContractState> {
 #[starknet::contract]
 mod ZKPassport {
     use core::num::traits::Zero;
+    use core::poseidon::poseidon_hash_span;
     use starknet::storage::{
         Map, StoragePathEntry, StoragePointerReadAccess, StoragePointerWriteAccess,
     };
     use starknet::{ClassHash, get_block_number, get_caller_address, syscalls};
     use super::{ContractAddress, IZKPassport};
-    // Note: Garaga's verify_groth16_proof_bn254 should be called via library_call_syscall
-    // The actual function is part of the Garaga verifier contract, not directly importable
+    // Garaga's verify_groth16_proof_bn254 is called via library_call_syscall.
+    // It returns Result<Span<u256>, felt252> serialized as:
+    //   [0, len, u256s...] on success (Ok variant tag = 0)
+    //   [1, error_felt252] on failure (Err variant tag = 1)
 
     #[derive(Drop, starknet::Store)]
     struct AgentCredential {
@@ -214,14 +217,17 @@ mod ZKPassport {
         fn _verify_zk_proof(
             self: @ContractState, proof_data: Span<felt252>, public_inputs: Span<felt252>,
         ) -> bool {
-            // Use Garaga's Groth16 verifier via library call
+            // Use Garaga's Groth16 verifier via library call.
+            // proof_data is expected to be the full_proof_with_hints array generated
+            // by `garaga calldata`. The garaga calldata already includes public inputs
+            // internally, so we only pass proof_data to the verifier.
             let verifier_class_hash = self.verifier_class_hash.read();
 
-            // Prepare calldata for library call
-            // For Span parameters, we need: [proof_len, proof_elems..., inputs_len, input_elems...]
+            // The Garaga verifier takes a single Span<felt252> argument.
+            // Cairo's entry point validates ALL calldata is consumed, so we must
+            // send ONLY the proof_data (no trailing public_inputs).
             let mut calldata: Array<felt252> = array![];
 
-            // Serialize proof_data length then elements
             calldata.append(proof_data.len().into());
             let mut proof_span = proof_data;
             loop {
@@ -231,25 +237,19 @@ mod ZKPassport {
                 }
             }
 
-            // Serialize public_inputs length then elements
-            calldata.append(public_inputs.len().into());
-            let mut inputs_span = public_inputs;
-            loop {
-                match inputs_span.pop_front() {
-                    Option::Some(element) => { calldata.append(*element); },
-                    Option::None => { break; },
-                }
-            }
-
-            // Call Garaga verifier
+            // library_call_syscall returns SysCallResult<Span<felt252>>.
+            // The inner Span<felt252> is the ABI-serialised return of the callee.
+            // Real Garaga verifier returns Result<Span<u256>, felt252>:
+            //   Success: output[0] == 0  (Cairo enum variant tag for Ok)
+            //   Failure: output[0] == 1  (Cairo enum variant tag for Err)
             let result = syscalls::library_call_syscall(
                 verifier_class_hash, selector!("verify_groth16_proof_bn254"), calldata.span(),
             );
 
             match result {
                 Result::Ok(output) => {
-                    // Verifier returns empty array on success
-                    output.len() == 0
+                    // output[0] == 0 => Result::Ok => proof valid
+                    output.len() > 0 && *output.at(0) == 0
                 },
                 Result::Err(_) => false,
             }
@@ -258,29 +258,27 @@ mod ZKPassport {
         fn _compute_proof_hash(
             self: @ContractState, proof_data: Span<felt252>, public_inputs: Span<felt252>,
         ) -> felt252 {
-            // Simple hash combining proof and public inputs (optimized with Span)
-            // In production, use Poseidon hash for better security
-            let mut hash: felt252 = 0;
+            // Compute Poseidon hash over proof_data + public_inputs for replay protection.
+            // poseidon_hash_span is the standard Starknet Poseidon hasher.
+            let mut elems: Array<felt252> = array![];
 
-            // Iterate proof_data with Span
             let mut proof_span = proof_data;
             loop {
                 match proof_span.pop_front() {
-                    Option::Some(element) => { hash = hash + *element; },
+                    Option::Some(element) => { elems.append(*element); },
                     Option::None => { break; },
                 }
             }
 
-            // Iterate public_inputs with Span
             let mut inputs_span = public_inputs;
             loop {
                 match inputs_span.pop_front() {
-                    Option::Some(element) => { hash = hash + *element; },
+                    Option::Some(element) => { elems.append(*element); },
                     Option::None => { break; },
                 }
             }
 
-            hash
+            poseidon_hash_span(elems.span())
         }
     }
 }
