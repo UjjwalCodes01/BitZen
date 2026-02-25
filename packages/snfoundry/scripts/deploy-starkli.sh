@@ -13,7 +13,7 @@ ACCOUNT_FILE="/home/ujwal/Desktop/coding/BitZen/argent_account.json"
 RPC_URL="https://starknet-sepolia.g.alchemy.com/starknet/version/rpc/v0_10/oX6CVMWKcDva93Z4ZrmZ1"
 ACCOUNT_ADDR="0x018f34152a21b9B458e4511860bf594885c14003C453b7DE326c4053fcf2a7f1"
 PRIVATE_KEY="0x06b7b806707e2f17ab5436da2edbdab6aed518cf70798436fd0a90fa40ed1442"
-GARAGA_VERIFIER="0x59d24936725776758dc34d74b254d15f74b26683018470b6357d23dcab6b4bd"
+GARAGA_VERIFIER="0x91dda5fd3db7012841f66426fe5b26a9b10612215d8761ba16991e430daca8"
 STRK_TOKEN="0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d"
 
 cd /home/ujwal/Desktop/coding/BitZen/packages/snfoundry/contracts

@@ -226,7 +226,7 @@ curl -X POST https://starknet-sepolia.public.blastapi.io \
 ```javascript
 [
   admin_address,                // Contract admin
-  garaga_verifier_class_hash   // 0x59d24936725776758dc34d74b254d15f74b26683018470b6357d23dcab6b4bd (Sepolia)
+  garaga_verifier_class_hash   // 0x91dda5fd3db7012841f66426fe5b26a9b10612215d8761ba16991e430daca8 (Sepolia)
 ]
 ```
 

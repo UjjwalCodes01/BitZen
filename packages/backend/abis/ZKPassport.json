@@ -42,7 +42,7 @@
     ],
     "outputs": [
       {
-        "type": "(core::bool, u64, core::bool)"
+        "type": "(core::bool, core::integer::u64, core::felt252)"
       }
     ],
     "state_mutability": "view"

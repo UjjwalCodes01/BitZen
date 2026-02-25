@@ -40,7 +40,7 @@ echo ""
 echo "Step 6: Deploying ZKPassport..."
 # Constructor params: admin, verifier_class_hash
 ADMIN="0x0447ae02a8f08110852bd541d2d9fbf0d512cea73041cc579efb27bf8a1bf22e"
-GARAGA_VERIFIER="0x59d24936f0a7d9df4eb0c87c4d6f6843fe13b2ad89d6e9a46ea6b3c16c410c0"
+GARAGA_VERIFIER="0x91dda5fd3db7012841f66426fe5b26a9b10612215d8761ba16991e430daca8"
 
 ZKPASSPORT_ADDRESS=$(sncast --profile oz-deployer deploy \
     --class-hash "$ZKPASSPORT_CLASS_HASH" \

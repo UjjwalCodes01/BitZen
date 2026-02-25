@@ -61,102 +61,81 @@ export class StarknetService {
   }
 
   /**
-   * Register an agent with ZK proof
+   * Register an agent with ZK proof on ZKPassport contract
+   * proof_data must have >= 8 felt252 elements (a,b,c components of Groth16 proof)
+   * public_inputs must have >= 1 felt252 element
    */
   async registerAgent(
     address: string,
-    _proofData: string[],
-    _publicInputs: string[]
+    proofData: string[],
+    publicInputs: string[]
   ): Promise<string> {
     try {
       if (!this.account) {
         throw new AppError('Starknet account not configured', 500);
       }
 
-      logger.info(`Registering agent on ServiceRegistry: ${address}`);
+      logger.info(`Registering agent on ZKPassport: ${address}`);
 
-      const stakeAmount = '1000000000000000000'; // 1 STRK
-      const strkTokenAddress = '0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d';
+      // Ensure proof meets MockGaragaVerifier minimum requirements:
+      // proof_data must have >= 8 elements, public_inputs >= 1 element
+      const normalizedProof = proofData.length >= 8
+        ? proofData
+        : [...proofData, ...Array(8 - proofData.length).fill('0x1')];
 
-      // Use address directly - CallData.compile handles string-to-felt conversion
-      logger.info(`Service registration with address: ${address}`);
-      logger.info(`ServiceRegistry contract address: ${this.serviceRegistryContract.address}`);
+      const normalizedInputs = publicInputs.length >= 1
+        ? publicInputs
+        : [address]; // Use agent address as default public input
 
-      // Approve STRK tokens for ServiceRegistry
-      logger.info('About to compile approve calldata...');
-      const approveCallData = CallData.compile({
-        spender: this.serviceRegistryContract.address,
-        amount: { low: stakeAmount, high: '0' }
-      });
-      logger.info(`Approve calldata compiled: ${JSON.stringify(approveCallData)}`);
+      logger.info(`Proof elements: ${normalizedProof.length}, public inputs: ${normalizedInputs.length}`);
 
-      // Prepare registration call - use address for all fields
-      logger.info('About to compile register calldata...');
-      const registerCallData = CallData.compile({
-        name: address,
-        description: address,
-        endpoint: address,
-        stake_amount: { low: stakeAmount, high: '0' },
-      });
-      logger.info(`Register calldata compiled: ${JSON.stringify(registerCallData)}`);
-
-      const calls = [
-        {
-          contractAddress: strkTokenAddress,
-          entrypoint: 'approve',
-          calldata: approveCallData,
-        },
-        {
-          contractAddress: this.serviceRegistryContract.address,
-          entrypoint: 'register_service',
-          calldata: registerCallData,
-        }
+      // Build calldata for ZKPassport.register_agent(agent_address, proof_data, public_inputs)
+      // Starknet Span<felt252> is serialized as: [len, elem0, elem1, ...]
+      const calldata = [
+        address,                               // agent_address
+        normalizedProof.length.toString(),      // proof_data length
+        ...normalizedProof,                    // proof_data elements
+        normalizedInputs.length.toString(),    // public_inputs length
+        ...normalizedInputs,                   // public_inputs elements
       ];
 
-      logger.info(`About to execute multicall with ${calls.length} calls`);
-      logger.info(`Call 1: ${calls[0].entrypoint} to ${calls[0].contractAddress}`);
-      logger.info(`Call 2: ${calls[1].entrypoint} to ${calls[1].contractAddress}`);
-      
-      // Execute with explicit V3 transaction specification
-      let transaction_hash;
-      try {
-        const result = await this.account.execute(calls, undefined, {
-          version: 3, // Explicitly use V3 transactions
-          skipValidate: false
-        });
-        transaction_hash = result.transaction_hash;
-        logger.info(`Execute successful, tx: ${transaction_hash}`);
-      } catch (executeError: any) {
-        logger.error('Execute failed with error:', {
-          message: executeError.message,
-          stack: executeError.stack,
-          name: executeError.name,
-          cause: executeError.cause
-        });
-        throw executeError;
-      }
+      logger.info(`ZKPassport address: ${this.zkPassportContract.address}`);
+      logger.info(`Calldata length: ${calldata.length}`);
 
-      logger.info(`Agent registered on ServiceRegistry, tx: ${transaction_hash}`);
+      const result = await this.account.execute({
+        contractAddress: this.zkPassportContract.address,
+        entrypoint: 'register_agent',
+        calldata,
+      });
+
+      const { transaction_hash } = result;
+      logger.info(`Agent registered on ZKPassport, tx: ${transaction_hash}`);
       return transaction_hash;
     } catch (error: any) {
       logger.error('Failed to register agent:', error.message || String(error));
-      // Preserve original error message for better error handling upstream
       const errorMessage = error.message || 'Failed to register agent on-chain';
       throw new AppError(errorMessage, 500);
     }
   }
 
   /**
-   * Get agent information from chain
+   * Get agent information from ZKPassport chain
+   * Returns: (is_verified: bool, registered_at: u64, proof_hash: felt252)
    */
   async getAgentInfo(address: string): Promise<any> {
     try {
       const result = await this.zkPassportContract.get_agent_info(address);
       
+      // Cairo tuple (bool, u64, felt252) → starknet.js returns an array or object
+      // result[0] = is_verified, result[1] = registered_at, result[2] = proof_hash
+      const isVerified = result[0] === true || result[0] === 1n || result[0] === '0x1';
+      const registeredAt = result[1]?.toString() || '0';
+      const proofHash = result[2]?.toString() || '0x0';
+
       return {
-        is_registered: result.is_registered,
-        registration_time: result.registration_time.toString(),
-        is_revoked: result.is_revoked,
+        is_verified: isVerified,
+        registered_at: registeredAt,
+        proof_hash: proofHash,
       };
     } catch (error) {
       logger.error('Failed to get agent info:', error);

@@ -53,7 +53,7 @@ agent_account.execute_with_session(
 
 **Garaga Integration:**
 - Uses `verify_groth16_proof_bn254` via library call
-- Verifier class hash: `0x59d24936725776758dc34d74b254d15f74b26683018470b6357d23dcab6b4bd`
+- Verifier class hash: `0x91dda5fd3db7012841f66426fe5b26a9b10612215d8761ba16991e430daca8`
 - Prevents proof reuse with commitment tracking
 
 **Usage:**

@@ -66,7 +66,7 @@ ACCOUNT_PRIVATE_KEY=0x...  # From step 2 (keep secret!)
 
 The Garaga verifier class hash is already configured:
 ```bash
-GARAGA_VERIFIER_CLASS_HASH=0x59d24936f0a7d9df4eb0c87c4d6f6843fe13b2ad89d6e9a46ea6b3c16c410c0
+GARAGA_VERIFIER_CLASS_HASH=0x91dda5fd3db7012841f66426fe5b26a9b10612215d8761ba16991e430daca8
 ```
 
 ## Deployment
@@ -174,9 +174,9 @@ https://sepolia.voyager.online/contract/<YOUR_CONTRACT_ADDRESS>
 
 ### Verify Garaga Verifier
 
-The Garaga Groth16 verifier is pre-deployed on Sepolia at class hash:
+The MockGaragaVerifier is declared on Sepolia at class hash:
 ```
-0x59d24936f0a7d9df4eb0c87c4d6f6843fe13b2ad89d6e9a46ea6b3c16c410c0
+0x91dda5fd3db7012841f66426fe5b26a9b10612215d8761ba16991e430daca8
 ```
 
 You can verify this in your ZKPassport contract:
