@@ -40,7 +40,7 @@ export const getWsUrlForChain = (chain: Chain): string => {
         sepoliaWs ||
         httpToWs(
           chain.rpcUrls.public.http[0] ||
-            "https://starknet-sepolia.public.blastapi.io/rpc/v0_9",
+            "https://starknet-sepolia.public.blastapi.io/rpc/v0_10",
         )
       );
     case "mainnet":
@@ -48,7 +48,7 @@ export const getWsUrlForChain = (chain: Chain): string => {
         mainnetWs ||
         httpToWs(
           chain.rpcUrls.public.http[0] ||
-            "https://starknet-mainnet.public.blastapi.io/rpc/v0_9",
+            "https://starknet-mainnet.public.blastapi.io/rpc/v0_10",
         )
       );
     default:

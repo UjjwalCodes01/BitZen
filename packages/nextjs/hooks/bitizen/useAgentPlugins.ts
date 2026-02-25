@@ -85,9 +85,12 @@ export const useAgentPlugins = () => {
     [address],
   );
 
-  const verifyZKProof = useCallback(async (proof: string) => {
-    return pluginService.verifyZKProof(proof);
-  }, []);
+  const verifyZKProof = useCallback(
+    async (proof: string, publicInputs?: string[]) => {
+      return pluginService.verifyZKProof(proof, publicInputs);
+    },
+    [],
+  );
 
   const getZKProofStatus = useCallback(async (proofId: string) => {
     return pluginService.getZKProofStatus(proofId);

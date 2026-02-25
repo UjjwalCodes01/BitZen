@@ -15,7 +15,7 @@ export class StarknetService {
   constructor() {
     // Initialize provider
     this.provider = new RpcProvider({
-      nodeUrl: process.env.STARKNET_RPC_URL || 'https://starknet-sepolia.g.alchemy.com/starknet/version/rpc/v0_9',
+      nodeUrl: process.env.STARKNET_RPC_URL || 'https://starknet-sepolia.g.alchemy.com/starknet/version/rpc/v0_10/oX6CVMWKcDva93Z4ZrmZ1',
     });
 
     // Initialize contracts

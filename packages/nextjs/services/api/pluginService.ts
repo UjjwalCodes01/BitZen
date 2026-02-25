@@ -155,23 +155,6 @@ class PluginService {
     }
   }
 
-  /**
-   * Get current exchange rates
-   */
-  async getExchangeRates(): Promise<ActionResult> {
-    try {
-      const response = await fetch(
-        `${BACKEND_URL}/api/v1/plugins/bitcoin/rates`,
-      );
-      return await response.json();
-    } catch (error: any) {
-      return {
-        success: false,
-        error: error.message || "Failed to get exchange rates",
-      };
-    }
-  }
-
   // ==================== ZKPROOF PLUGIN ====================
 
   /**
