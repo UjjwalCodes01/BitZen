@@ -24,7 +24,7 @@ BitZen is a cutting-edge decentralized AI agent platform on Starknet that combin
 - Gas optimization verified
 
 ### ✅ Testnet Deployment Live
-- **ZKPassport**: 0x045298a1c7f2f2faf2aa75f794c5f96a5c282a80d2dbcfd4bfb5045a76101667
+- **ZKPassport**: 0x04de9778b76c309cf3780e65c87060b046ba88574a950ef1d399e9b6fcd1b44d
 - **ServiceRegistry**: 0x06b3b6f139090875372d25adfa8401c50474a05aeb8e4c1d0365601563aa32da
 - **AgentAccount**: Class Hash 0x12ccc0cdeddc1eea432f376c78dca4d54db8bd0de66b3e150ecfb9d5cf47f00
 
@@ -209,12 +209,12 @@ All operations: **$0.01 - $0.06 per transaction** ✅
 
 | Contract | Address | Class Hash | Status |
 |----------|---------|-----------|--------|
-| ZKPassport | 0x045298a1c7f2f2faf2aa75f794c5f96a5c282a80d2dbcfd4bfb5045a76101667 | 0x7fa69c1f238d3b5e1e353b3eabef1b0b7437d04be6e36d37780f3464b4200d7 | ✅ Live |
+| ZKPassport | 0x04de9778b76c309cf3780e65c87060b046ba88574a950ef1d399e9b6fcd1b44d | 0x14709c5ff28f29a01a957c6bf84cdb30cee49ab0d02d316406fbf9c2d664131 | ✅ Live |
 | ServiceRegistry | 0x06b3b6f139090875372d25adfa8401c50474a05aeb8e4c1d0365601563aa32da | 0x4829f1031a1efd16792cf98e16b08c147de25837cdc03f285ffbc9b1e248c1c | ✅ Live |
 | AgentAccount | - | 0x12ccc0cdeddc1eea432f376c78dca4d54db8bd0de66b3e150ecfb9d5cf47f00 | ✅ Deployable |
 
 **Explorer Links:**
-- [ZKPassport on StarkscanIO](https://sepolia.starkscan.co/contract/0x045298a1c7f2f2faf2aa75f794c5f96a5c282a80d2dbcfd4bfb5045a76101667)
+- [ZKPassport on StarkscanIO](https://sepolia.starkscan.co/contract/0x04de9778b76c309cf3780e65c87060b046ba88574a950ef1d399e9b6fcd1b44d)
 - [ServiceRegistry on StarkscanIO](https://sepolia.starkscan.co/contract/0x06b3b6f139090875372d25adfa8401c50474a05aeb8e4c1d0365601563aa32da)
 - [Deployer Account on StarkscanIO](https://sepolia.starkscan.co/contract/0x0447ae02a8f08110852bd541d2d9fbf0d512cea73041cc579efb27bf8a1bf22e)
 

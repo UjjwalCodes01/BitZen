@@ -186,7 +186,7 @@ Optimization Recommendations:
 ## Deployment Status
 
 ### ✅ Testnet Deployment Complete
-- **ZKPassport:** 0x045298a1c7f2f2faf2aa75f794c5f96a5c282a80d2dbcfd4bfb5045a76101667
+- **ZKPassport:** 0x04de9778b76c309cf3780e65c87060b046ba88574a950ef1d399e9b6fcd1b44d
 - **ServiceRegistry:** 0x06b3b6f139090875372d25adfa8401c50474a05aeb8e4c1d0365601563aa32da
 - **AgentAccount:** Class Hash 0x12ccc0cdeddc1eea432f376c78dca4d54db8bd0de66b3e150ecfb9d5cf47f00
 

@@ -4,8 +4,8 @@
     "address": ""
   },
   "ZKPassport": {
-    "classHash": "",
-    "address": ""
+    "classHash": "0x14709c5ff28f29a01a957c6bf84cdb30cee49ab0d02d316406fbf9c2d664131",
+    "address": "0x04de9778b76c309cf3780e65c87060b046ba88574a950ef1d399e9b6fcd1b44d"
   },
   "ServiceRegistry": {
     "classHash": "",
