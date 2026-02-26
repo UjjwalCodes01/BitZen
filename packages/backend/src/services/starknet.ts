@@ -317,42 +317,6 @@ export class StarknetService {
   }
 
   /**
-   * Create session for agent account
-   */
-  async createSession(
-    agentAddress: string,
-    sessionPublicKey: string,
-    expirationBlock: number,
-    maxSpendPerTx: number,
-    allowedMethods: string[]
-  ): Promise<string> {
-    try {
-      if (!this.account) {
-        throw new AppError('Starknet account not initialized', 500);
-      }
-
-      const callData = CallData.compile({
-        session_public_key: sessionPublicKey,
-        expiration_block: expirationBlock,
-        max_spend_per_tx: num.toHex(maxSpendPerTx),
-        allowed_methods: allowedMethods,
-      });
-
-      const { transaction_hash } = await this.account.execute({
-        contractAddress: agentAddress,
-        entrypoint: 'create_session',
-        calldata: callData,
-      });
-
-      logger.info(`Session creation tx: ${transaction_hash}`);
-      return transaction_hash;
-    } catch (error) {
-      logger.error('Failed to create session:', error);
-      throw new AppError('Failed to create session on-chain', 500);
-    }
-  }
-
-  /**
    * Wait for transaction confirmation
    */
   async waitForTransaction(txHash: string): Promise<boolean> {

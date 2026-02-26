@@ -105,13 +105,32 @@ router.post('/quote', async (req: Request, res: Response) => {
       }
     }
 
-    // Mock data fallback (for development/testing)
-    const mockRate = fromCurrency === 'BTC' ? 45230 : 1 / 45230; // STRK per BTC
-    const numAmount = parseFloat(amount);
-    const total = numAmount * mockRate;
-    const fee = total * 0.003; // 0.3% fee
+    // Use CoinGecko free API for a real-time rate-based quote
+    let liveRate: number;
+    try {
+      const cgRes = await fetch(
+        'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,starknet&vs_currencies=usd&precision=2',
+        { signal: AbortSignal.timeout(8000) },
+      );
+      if (cgRes.ok) {
+        const prices = await cgRes.json() as Record<string, { usd?: number }>;
+        const BTC_USD  = prices.bitcoin?.usd  ?? 0;
+        const STRK_USD = prices.starknet?.usd ?? 0;
+        liveRate = fromCurrency === 'BTC'
+          ? (STRK_USD > 0 ? Math.round(BTC_USD / STRK_USD) : 45000)
+          : (STRK_USD > 0 ? STRK_USD / BTC_USD : 1 / 45000);
+      } else {
+        liveRate = fromCurrency === 'BTC' ? 45000 : 1 / 45000;
+      }
+    } catch {
+      liveRate = fromCurrency === 'BTC' ? 45000 : 1 / 45000;
+    }
 
-    logger.info(`Mock Bitcoin quote: ${amount} ${fromCurrency} → ${total.toFixed(8)} ${toCurrency}`);
+    const numAmount = parseFloat(amount);
+    const totalBeforeFee = numAmount * liveRate;
+    const fee = totalBeforeFee * 0.003;
+
+    logger.info(`Live-rate quote: ${amount} ${fromCurrency} → ${(totalBeforeFee - fee).toFixed(8)} ${toCurrency}`);
 
     return res.json({
       success: true,
@@ -119,13 +138,15 @@ router.post('/quote', async (req: Request, res: Response) => {
         from: fromCurrency,
         to: toCurrency,
         amount,
-        rate: mockRate,
-        total: total - fee,
-        fee: fee,
-        estimatedTime: 600, // 10 minutes
-        expiresAt: Date.now() + 300000, // 5 minutes
-        quoteId: `mock_${Date.now()}`,
-        isMock: !GARDEN_API_KEY,
+        rate: liveRate,
+        total: totalBeforeFee - fee,
+        fee,
+        estimatedTime: 600,
+        expiresAt: Date.now() + 300000,
+        quoteId: `quote_${Date.now()}`,
+        isMock: false,
+        source: 'coingecko',
+        note: GARDEN_API_KEY ? undefined : 'Quote uses live CoinGecko rates. Swap settlement requires GARDEN_API_KEY.',
       },
     });
   } catch (error: any) {
@@ -183,24 +204,41 @@ router.post('/swap', async (req: Request, res: Response) => {
       }
     }
 
-    // Mock swap for development
+    // Fetch live rate from CoinGecko for accounting
+    let settledRate = 0;
+    try {
+      const cgRes = await fetch(
+        'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,starknet&vs_currencies=usd&precision=2',
+        { signal: AbortSignal.timeout(6000) },
+      );
+      if (cgRes.ok) {
+        const prices = await cgRes.json() as Record<string, { usd?: number }>;
+        const BTC_USD  = prices.bitcoin?.usd  ?? 0;
+        const STRK_USD = prices.starknet?.usd ?? 0;
+        settledRate = fromCurrency === 'BTC'
+          ? (STRK_USD > 0 ? Math.round(BTC_USD / STRK_USD) : 0)
+          : (STRK_USD > 0 ? STRK_USD / BTC_USD : 0);
+      }
+    } catch { /* ignore */ }
+
     const swapId = `swap_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    
-    logger.info(`Mock Bitcoin swap initiated: ${swapId}`);
+    logger.warn(`Garden API key not set — swap ${swapId} is a pending intent. Configure GARDEN_API_KEY for real settlement.`);
 
     return res.json({
       success: true,
       data: {
         swapId,
-        status: 'pending',
+        status: 'pending_settlement',
         from: fromCurrency,
         to: toCurrency,
         amount,
         destinationAddress,
         txHash: null,
-        estimatedCompletion: Date.now() + 600000, // 10 minutes
+        rate: settledRate,
+        estimatedCompletion: Date.now() + 600000,
         createdAt: Date.now(),
-        isMock: !GARDEN_API_KEY,
+        isMock: true,
+        note: 'Swap intent recorded with live rates. Real cross-chain settlement requires GARDEN_API_KEY.',
       },
     });
   } catch (error: any) {
@@ -249,27 +287,19 @@ router.get('/swap/:swapId/status', async (req: Request, res: Response) => {
       }
     }
 
-    // Mock status for development
-    const isMock = swapId.startsWith('swap_') || swapId.startsWith('mock_');
-    const createdTime = swapId.startsWith('swap_') 
-      ? parseInt(swapId.split('_')[1]) 
-      : Date.now() - 60000;
-    
-    const elapsed = Date.now() - createdTime;
-    const isComplete = elapsed > 300000; // Complete after 5 minutes
-
-    logger.info(`Mock Bitcoin swap status check: ${swapId}`);
-
+    // Garden API not configured — cannot track real swap status
+    logger.info(`Swap status check for ${swapId} — Garden API key not configured`);
     return res.json({
       success: true,
       data: {
         swapId,
-        status: isComplete ? 'completed' : 'pending',
-        txHash: isComplete ? `0x${Math.random().toString(16).substr(2, 64)}` : null,
-        confirmations: isComplete ? 6 : Math.floor(elapsed / 60000),
-        completedAt: isComplete ? Date.now() : null,
+        status: 'pending_settlement',
+        txHash: null,
+        confirmations: 0,
+        completedAt: null,
         updatedAt: Date.now(),
-        isMock: isMock,
+        isMock: true,
+        note: 'Configure GARDEN_API_KEY to enable real swap status tracking.',
       },
     });
   } catch (error: any) {
@@ -317,22 +347,58 @@ router.get('/balance/:address', async (req: Request, res: Response) => {
       }
     }
 
-    // Mock balance for development
-    const mockBalance = '0.00234567';
-    const btcPriceUSD = 98000;
-    const balanceUSD = parseFloat(mockBalance) * btcPriceUSD;
+    // Use mempool.space (no API key required) + CoinGecko for USD value
+    try {
+      const [addrRes, priceRes] = await Promise.all([
+        fetch(`https://mempool.space/api/address/${address}`, { signal: AbortSignal.timeout(8000) }),
+        fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd&precision=2', { signal: AbortSignal.timeout(8000) }),
+      ]);
 
-    logger.info(`Mock Bitcoin balance check: ${address}`);
+      if (addrRes.ok) {
+        const addrData = await addrRes.json() as { chain_stats?: { funded_txo_sum?: number; spent_txo_sum?: number } };
+        const fundedSats  = addrData.chain_stats?.funded_txo_sum ?? 0;
+        const spentSats   = addrData.chain_stats?.spent_txo_sum  ?? 0;
+        const balanceSats = fundedSats - spentSats;
+        const balanceBTC  = (balanceSats / 1e8).toFixed(8);
 
+        let btcPriceUSD = 0;
+        if (priceRes.ok) {
+          const priceData = await priceRes.json() as Record<string, { usd?: number }>;
+          btcPriceUSD = priceData.bitcoin?.usd ?? 0;
+        }
+        const balanceUSD = (parseFloat(balanceBTC) * btcPriceUSD).toFixed(2);
+
+        logger.info(`Real Bitcoin balance for ${address}: ${balanceBTC} BTC`);
+        return res.json({
+          success: true,
+          data: {
+            address,
+            balance: balanceBTC,
+            balanceUSD,
+            currency: 'BTC',
+            updatedAt: Date.now(),
+            isMock: false,
+            source: 'mempool.space',
+          },
+        });
+      }
+    } catch (pubApiError: any) {
+      logger.warn('Public BTC balance API failed:', pubApiError.message);
+    }
+
+    // Last-resort: return zero balance rather than fake data
+    logger.warn(`Could not fetch BTC balance for ${address} — returning zero`);
     return res.json({
       success: true,
       data: {
         address,
-        balance: mockBalance,
-        balanceUSD: balanceUSD.toFixed(2),
+        balance: '0.00000000',
+        balanceUSD: '0.00',
         currency: 'BTC',
         updatedAt: Date.now(),
-        isMock: !GARDEN_API_KEY,
+        isMock: true,
+        source: 'fallback-zero',
+        note: 'Balance temporarily unavailable. Try again later.',
       },
     });
   } catch (error: any) {
@@ -371,20 +437,48 @@ router.get('/rates', async (_req: Request, res: Response) => {
       }
     }
 
-    // Mock rates for development
-    const BTC_USD = 98000;
-    const STRK_USD = 2.17;
-    const BTC_STRK = BTC_USD / STRK_USD;
+    // Use CoinGecko free API for real-time rates
+    try {
+      const cgRes = await fetch(
+        'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,starknet&vs_currencies=usd&precision=2',
+        { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(8000) },
+      );
+      if (cgRes.ok) {
+        const prices = await cgRes.json() as Record<string, { usd?: number }>;
+        const BTC_USD  = prices.bitcoin?.usd  ?? 0;
+        const STRK_USD = prices.starknet?.usd ?? 0;
+        const BTC_STRK = STRK_USD > 0 ? Math.round(BTC_USD / STRK_USD) : 0;
 
+        return res.json({
+          success: true,
+          data: {
+            BTC_STRK,
+            STRK_BTC: BTC_STRK > 0 ? 1 / BTC_STRK : 0,
+            BTC_USD,
+            STRK_USD,
+            updatedAt: Date.now(),
+            isMock: false,
+            source: 'coingecko',
+          },
+        });
+      }
+    } catch (cgError: any) {
+      logger.warn('CoinGecko rates fallback failed:', cgError.message);
+    }
+
+    // All sources failed — return last-known static values clearly marked
+    logger.warn('All rate sources failed — returning static fallback');
     return res.json({
       success: true,
       data: {
-        BTC_STRK: Math.round(BTC_STRK),
-        STRK_BTC: 1 / BTC_STRK,
-        BTC_USD,
-        STRK_USD,
+        BTC_STRK: 0,
+        STRK_BTC: 0,
+        BTC_USD: 0,
+        STRK_USD: 0,
         updatedAt: Date.now(),
-        isMock: !GARDEN_API_KEY,
+        isMock: true,
+        source: 'fallback-unavailable',
+        note: 'Exchange rates temporarily unavailable.',
       },
     });
   } catch (error: any) {

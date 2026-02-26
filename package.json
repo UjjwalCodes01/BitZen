@@ -6,8 +6,7 @@
   "author": "Q3 Labs",
   "workspaces": {
     "packages": [
-      "packages/snfoundry",
-      "packages/nextjs"
+      "packages/snfoundry"
     ]
   },
   "scripts": {
@@ -17,16 +16,10 @@
     "deploy": "yarn workspace @ss-2/snfoundry deploy",
     "deploy:clear": "yarn workspace @ss-2/snfoundry deploy:clear",
     "deploy:no-reset": "yarn workspace @ss-2/snfoundry deploy --no-reset",
-    "format": "yarn workspace @ss-2/nextjs format && yarn workspace @ss-2/snfoundry format",
-    "format:check": "yarn workspace @ss-2/nextjs format:check && yarn workspace @ss-2/snfoundry format:check",
-    "next:check-types": "yarn workspace @ss-2/nextjs check-types",
-    "next:lint": "yarn workspace @ss-2/nextjs lint",
+    "format": "yarn workspace @ss-2/snfoundry format",
+    "format:check": "yarn workspace @ss-2/snfoundry format:check",
     "prepare": "husky",
-    "start": "yarn workspace @ss-2/nextjs dev",
     "test": "yarn workspace @ss-2/snfoundry test",
-    "test:nextjs": "yarn workspace @ss-2/nextjs test",
-    "vercel": "yarn workspace @ss-2/nextjs vercel",
-    "vercel:yolo": "yarn workspace @ss-2/nextjs vercel:yolo",
     "verify": "yarn workspace @ss-2/snfoundry verify"
   },
   "dependencies": {

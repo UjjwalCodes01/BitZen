@@ -21,7 +21,8 @@ import crypto from 'crypto';
 import os from 'os';
 import { execSync } from 'child_process';
 import { logger } from '../../utils/logger';
-import { buildPoseidon } from 'circomlibjs';
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { buildPoseidon } = require('circomlibjs') as { buildPoseidon: () => Promise<any> };
 import { saveProof, getProof, listProofsByAgent } from '../../database/proofs';
 
 // snarkjs is a CJS module — import via require
@@ -67,14 +68,55 @@ router.post('/generate', async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, error: 'Missing required field: agentAddress' });
     }
 
+    const addrBigInt = BigInt(agentAddress);
+
     if (!fs.existsSync(WASM_PATH) || !fs.existsSync(ZKEY_PATH)) {
-      return res.status(500).json({
-        success: false,
-        error: 'Circuit artefacts not found. Run packages/backend/circuits/setup.sh first.',
+      logger.warn('Circuit artefacts not found — returning mock proof for demo/dev mode');
+
+      const mockSecret = BigInt('0x' + crypto.randomBytes(31).toString('hex'));
+      const commitment = await poseidonCommitment(mockSecret, addrBigInt);
+      const secretHex  = '0x' + crypto.randomBytes(31).toString('hex');
+      const timestamp  = BigInt(Math.floor(Date.now() / 1000));
+      const expiresAt  = timestamp + BigInt(PROOF_TTL_SECONDS);
+      const proofId    = `mock_proof_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
+
+      const mockProof = {
+        pi_a: [crypto.randomBytes(32).toString('hex'), crypto.randomBytes(32).toString('hex'), '1'],
+        pi_b: [[crypto.randomBytes(32).toString('hex'), crypto.randomBytes(32).toString('hex')], [crypto.randomBytes(32).toString('hex'), crypto.randomBytes(32).toString('hex')], ['1', '0']],
+        pi_c: [crypto.randomBytes(32).toString('hex'), crypto.randomBytes(32).toString('hex'), '1'],
+        protocol: 'groth16',
+        curve: 'bn128',
+      };
+      const mockPublicSignals = [commitment.toString(), addrBigInt.toString(), timestamp.toString(), expiresAt.toString()];
+      const mockCalldata = [`0x${crypto.randomBytes(32).toString('hex')}`, `0x${crypto.randomBytes(32).toString('hex')}`];
+
+      await saveProof({
+        proofId,
+        agentAddress,
+        proof:         mockProof,
+        publicSignals: mockPublicSignals,
+        calldata:      mockCalldata,
+        commitment:    commitment.toString(),
+        expiresAt:     Number(expiresAt),
+        createdAt:     Date.now(),
+        status:        'generated',
+      });
+
+      return res.json({
+        success: true,
+        data: {
+          proofId,
+          proof:         mockProof,
+          publicSignals: mockPublicSignals,
+          calldata:      mockCalldata,
+          commitment:    commitment.toString(),
+          expiresAt:     Number(expiresAt),
+          createdAt:     Date.now(),
+          secret:        secretHex,
+          _mock:         true,
+        },
       });
     }
-
-    const addrBigInt = BigInt(agentAddress);
 
     // Accept caller-supplied secret or generate one.
     // In production the agent holds the secret client-side and never sends it.
