@@ -421,23 +421,43 @@ export class AccountPlugin implements Plugin {
         }
       }
 
-      // Execute task (simplified for demo)
-      const taskResult = {
-        taskType,
-        status: 'executed',
-        data: taskData,
-        executedAt: new Date().toISOString(),
-        sessionKey: sessionKey || 'default'
-      };
+      // Execute task via backend execute endpoint
+      // taskData must contain: contractAddress, entrypoint, and optionally calldata
+      const response = await fetch(
+        `${this.context.backendUrl}/api/v1/plugins/account/execute`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sessionId: sessionKey || 'default',
+            taskType,
+            parameters: {
+              contractAddress: taskData.contractAddress,
+              entrypoint: taskData.entrypoint,
+              calldata: taskData.calldata || [],
+              amount: taskData.amount,
+              ...taskData,
+            },
+          }),
+        },
+      );
 
-      this.context.logger?.info('Task executed', { taskType, sessionKey });
+      if (!response.ok) {
+        const errorBody = await response.json() as any;
+        throw new Error(errorBody.error || `Backend returned HTTP ${response.status}`);
+      }
+
+      const execResult = await response.json() as any;
+
+      this.context.logger?.info('Task executed', { taskType, txHash: execResult.data?.txHash });
 
       return {
         success: true,
-        data: taskResult,
+        data: execResult.data,
+        txHash: execResult.data?.txHash,
         metadata: {
-          executedWith: sessionKey ? 'session-key' : 'main-account'
-        }
+          executedWith: sessionKey ? 'session-key' : 'main-account',
+        },
       };
     } catch (error: any) {
       this.context.logger?.error('Failed to execute task:', error);
@@ -455,11 +475,25 @@ export class AccountPlugin implements Plugin {
     const { dailyLimit, transactionLimit } = params;
 
     try {
-      // Update via backend API
+      // Update via the plugin session-limits endpoint
+      // We update the most recent active session's spending limits
+      const sessionsResp = await fetch(
+        `${this.context.backendUrl}/api/v1/plugins/account/sessions/${this.context.agentAddress}`,
+      );
+      let targetSessionId: string | null = null;
+      if (sessionsResp.ok) {
+        const sessionsBody = await sessionsResp.json() as any;
+        const sessions: any[] = sessionsBody?.data?.sessions ?? [];
+        const active = sessions.find((s: any) => s.status === 'active');
+        if (active) targetSessionId = active.sessionId;
+      }
+      if (!targetSessionId) {
+        throw new Error('No active session found to update spending limits');
+      }
       const response = await fetch(
-        `${this.context.backendUrl}/api/v1/agents/${this.context.agentAddress}/spending-limits`,
+        `${this.context.backendUrl}/api/v1/plugins/account/sessions/${targetSessionId}/limit`,
         {
-          method: 'PUT',
+          method: 'PATCH',
           headers: {
             'Content-Type': 'application/json'
           },

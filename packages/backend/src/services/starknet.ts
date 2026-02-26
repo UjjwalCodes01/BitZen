@@ -61,6 +61,18 @@ export class StarknetService {
   }
 
   /**
+   * Execute an arbitrary multicall using the configured deployer account.
+   * This powers session key task execution in account.ts.
+   */
+  async executeTransaction(calls: { contractAddress: string; entrypoint: string; calldata: string[] }[]): Promise<string> {
+    if (!this.account) {
+      throw new AppError('Starknet account not configured', 500);
+    }
+    const result = await this.account.execute(calls);
+    return result.transaction_hash;
+  }
+
+  /**
    * Register an agent with a real Groth16 ZK proof on ZKPassport contract.
    *
    * @param address     - Agent Starknet address (felt252)

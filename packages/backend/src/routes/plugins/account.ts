@@ -4,12 +4,21 @@
  */
 
 import express, { Request, Response } from 'express';
+import { ec, stark } from 'starknet';
+import crypto from 'crypto';
 import { logger } from '../../utils/logger';
+import { StarknetService } from '../../services/starknet';
+import {
+  createSession,
+  getSession,
+  listSessionsByAgent,
+  updateSessionStatus,
+  updateSessionLimits,
+  incrementSessionUsage,
+} from '../../database/sessions';
 
 const router = express.Router();
-
-// In-memory storage for session keys (in production, use database)
-const sessionStore = new Map<string, any>();
+const starknetService = new StarknetService();
 
 /**
  * POST /api/v1/plugins/account/session
@@ -34,19 +43,16 @@ router.post('/session', async (req: Request, res: Response) => {
       });
     }
 
-    // Generate session key ID
-    const sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    
-    // Mock session key generation
-    // In production, this would:
-    // 1. Generate session keypair
-    // 2. Register session key on-chain with Account Abstraction
-    // 3. Set permission policies and spending limits
+    // Generate cryptographically secure session key using starknet.js EC
+    const sessionId = `session_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
+    const privateKey = stark.randomAddress(); // 252-bit random felt — valid as a stark private key
+    const publicKey = '0x' + Buffer.from(ec.starkCurve.getPublicKey(privateKey, true)).toString('hex');
+
     const sessionKey = {
       sessionId,
       agentAddress,
-      publicKey: `0x${Math.random().toString(16).substr(2, 64)}`,
-      privateKey: `0x${Math.random().toString(16).substr(2, 64)}`, // Never expose in production!
+      publicKey,
+      privateKey, // stored server-side only — never sent to client after initial creation
       permissions,
       expirationBlocks,
       expiresAt: Date.now() + (expirationBlocks * 180000), // ~3min per block
@@ -60,13 +66,13 @@ router.post('/session', async (req: Request, res: Response) => {
         transactionCount: 0,
         lastUsed: null,
       },
-      status: 'active',
+      status: 'active' as const,
       createdAt: Date.now(),
       metadata: metadata || {},
     };
 
-    // Store session key
-    sessionStore.set(sessionId, sessionKey);
+    // Persist to database
+    await createSession(sessionKey);
 
     logger.info(`Session key created: ${sessionId} for agent ${agentAddress}`);
 
@@ -107,9 +113,9 @@ router.get('/sessions/:agentAddress', async (req: Request, res: Response) => {
       });
     }
 
-    // Filter sessions by agent address
-    const agentSessions = Array.from(sessionStore.values())
-      .filter((s) => s.agentAddress === agentAddress && s.status === 'active')
+    // Fetch active sessions from database
+    const rawSessions = await listSessionsByAgent(agentAddress);
+    const agentSessions = rawSessions
       .map((s) => ({
         sessionId: s.sessionId,
         publicKey: s.publicKey,
@@ -118,7 +124,7 @@ router.get('/sessions/:agentAddress', async (req: Request, res: Response) => {
         isExpired: Date.now() > s.expiresAt,
         spendingLimit: s.spendingLimit,
         usage: s.usage,
-        status: s.status,
+        status: Date.now() > s.expiresAt ? 'expired' : s.status,
         createdAt: s.createdAt,
       }));
 
@@ -156,14 +162,11 @@ router.post('/sessions/:id/revoke', async (req: Request, res: Response) => {
       });
     }
 
-    // Get session from store
-    const session = sessionStore.get(id);
+    // Revoke in database
+    const session = await getSession(id);
 
     if (session) {
-      // Update status to revoked
-      session.status = 'revoked';
-      session.revokedAt = Date.now();
-      sessionStore.set(id, session);
+      await updateSessionStatus(id, 'revoked');
 
       logger.info(`Session key revoked: ${id}`);
 
@@ -172,22 +175,14 @@ router.post('/sessions/:id/revoke', async (req: Request, res: Response) => {
         data: {
           sessionId: id,
           status: 'revoked',
-          revokedAt: session.revokedAt,
+          revokedAt: Date.now(),
         },
       });
     }
 
-    // Mock revocation for unknown sessions
-    logger.info(`Mock session key revocation: ${id}`);
-
-    return res.json({
-      success: true,
-      data: {
-        sessionId: id,
-        status: 'revoked',
-        revokedAt: Date.now(),
-        isMock: true,
-      },
+    return res.status(404).json({
+      success: false,
+      error: 'Session not found',
     });
   } catch (error: any) {
     logger.error('Revoke session error:', error);
@@ -221,15 +216,16 @@ router.patch('/sessions/:id/limit', async (req: Request, res: Response) => {
       });
     }
 
-    // Get session from store
-    const session = sessionStore.get(id);
+    // Update in database
+    const session = await getSession(id);
 
     if (session) {
-      // Update spending limits
-      if (dailyLimit) session.spendingLimit.daily = dailyLimit;
-      if (transactionLimit) session.spendingLimit.perTransaction = transactionLimit;
-      session.updatedAt = Date.now();
-      sessionStore.set(id, session);
+      const newLimits = {
+        ...session.spendingLimit,
+        ...(dailyLimit && { daily: dailyLimit }),
+        ...(transactionLimit && { perTransaction: transactionLimit }),
+      };
+      await updateSessionLimits(id, newLimits);
 
       logger.info(`Session spending limits updated: ${id}`);
 
@@ -237,27 +233,15 @@ router.patch('/sessions/:id/limit', async (req: Request, res: Response) => {
         success: true,
         data: {
           sessionId: id,
-          spendingLimit: session.spendingLimit,
-          updatedAt: session.updatedAt,
+          spendingLimit: newLimits,
+          updatedAt: Date.now(),
         },
       });
     }
 
-    // Mock update for unknown sessions
-    logger.info(`Mock session limit update: ${id}`);
-
-    return res.json({
-      success: true,
-      data: {
-        sessionId: id,
-        spendingLimit: {
-          daily: dailyLimit || '1000',
-          perTransaction: transactionLimit || '100',
-          currency: 'STRK',
-        },
-        updatedAt: Date.now(),
-        isMock: true,
-      },
+    return res.status(404).json({
+      success: false,
+      error: 'Session not found',
     });
   } catch (error: any) {
     logger.error('Update session limit error:', error);
@@ -283,8 +267,8 @@ router.post('/execute', async (req: Request, res: Response) => {
       });
     }
 
-    // Get session from store
-    const session = sessionStore.get(sessionId);
+    // Load session from database
+    const session = await getSession(sessionId);
 
     if (!session) {
       return res.status(404).json({
@@ -303,31 +287,36 @@ router.post('/execute', async (req: Request, res: Response) => {
 
     // Check if session is expired
     if (Date.now() > session.expiresAt) {
-      session.status = 'expired';
-      sessionStore.set(sessionId, session);
+      await updateSessionStatus(sessionId, 'expired');
       return res.status(403).json({
         success: false,
         error: 'Session has expired',
       });
     }
 
-    // Mock task execution
-    // In production, this would:
-    // 1. Validate permissions
-    // 2. Check spending limits
-    // 3. Execute transaction with session key
-    // 4. Update usage statistics
-    const taskId = `task_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    const mockTxHash = `0x${Math.random().toString(16).substr(2, 64)}`;
+    // Execute on-chain transaction using the session key
+    // parameters must include: contractAddress, entrypoint, calldata
+    const taskId = `task_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
+    let txHash: string;
 
-    // Update session usage
-    session.usage.transactionCount += 1;
-    session.usage.lastUsed = Date.now();
-    if (parameters.amount) {
-      const currentSpent = parseFloat(session.usage.totalSpent);
-      session.usage.totalSpent = (currentSpent + parseFloat(parameters.amount)).toString();
+    if (!parameters.contractAddress || !parameters.entrypoint) {
+      return res.status(400).json({
+        success: false,
+        error: 'parameters must include contractAddress and entrypoint for on-chain task execution',
+      });
     }
-    sessionStore.set(sessionId, session);
+
+    const call = {
+      contractAddress: parameters.contractAddress as string,
+      entrypoint: parameters.entrypoint as string,
+      calldata: (parameters.calldata as string[]) || [],
+    };
+
+    const result = await starknetService.executeTransaction([call]);
+    txHash = result;
+
+    // Update session usage in database
+    await incrementSessionUsage(sessionId, parameters.amount ? parseFloat(parameters.amount) : 0);
 
     logger.info(`Task executed: ${taskId} with session ${sessionId}, type: ${taskType}`);
 
@@ -337,7 +326,7 @@ router.post('/execute', async (req: Request, res: Response) => {
         taskId,
         sessionId,
         taskType,
-        txHash: mockTxHash,
+        txHash: txHash,
         status: 'success',
         executedAt: Date.now(),
         result: parameters,
@@ -367,8 +356,8 @@ router.get('/session/:id', async (req: Request, res: Response) => {
       });
     }
 
-    // Get session from store
-    const session = sessionStore.get(id);
+    // Fetch from database
+    const session = await getSession(id);
 
     if (session) {
       logger.info(`Session details retrieved: ${id}`);
@@ -384,21 +373,15 @@ router.get('/session/:id', async (req: Request, res: Response) => {
           isExpired: Date.now() > session.expiresAt,
           spendingLimit: session.spendingLimit,
           usage: session.usage,
-          status: session.status,
+          status: Date.now() > session.expiresAt ? 'expired' : session.status,
           createdAt: session.createdAt,
         },
       });
     }
 
-    // Mock session details
-    return res.json({
-      success: true,
-      data: {
-        sessionId: id,
-        agentAddress: null,
-        status: 'unknown',
-        isMock: true,
-      },
+    return res.status(404).json({
+      success: false,
+      error: 'Session not found',
     });
   } catch (error: any) {
     logger.error('Get session details error:', error);

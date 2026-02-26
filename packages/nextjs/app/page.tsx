@@ -3,6 +3,7 @@
 import type { NextPage } from "next";
 import Link from "next/link";
 import { useAccount } from "@starknet-react/core";
+import { useState, useEffect } from "react";
 import {
   CpuChipIcon,
   BoltIcon,
@@ -16,52 +17,40 @@ import {
   ShieldCheckIcon,
   SparklesIcon,
 } from "@heroicons/react/24/solid";
+import { backendApi } from "~~/services/api/backendApi";
 
 const Home: NextPage = () => {
   const { isConnected } = useAccount();
 
-  // Mock data for featured agents/services
-  const featuredAgents = [
-    {
-      name: "ZK Passport Agent",
-      category: "Identity",
-      badge: "Gold Verified",
-      icon: LockClosedIcon,
-    },
-    {
-      name: "Bitcoin Swap Bot",
-      category: "Finance",
-      badge: "Silver Verified",
-      icon: CurrencyDollarIcon,
-    },
-    {
-      name: "Session Manager",
-      category: "Utilities",
-      badge: "Community Tier",
-      icon: BoltIcon,
-    },
-  ];
+  const [featuredServices, setFeaturedServices] = useState<any[]>([]);
+  const [newServices, setNewServices] = useState<any[]>([]);
+  const [stats, setStats] = useState({ agents: 0, services: 0 });
+  const [loadingServices, setLoadingServices] = useState(true);
 
-  const newReleases = [
-    {
-      name: "Oracle Agent",
-      category: "Data & Oracles",
-      badge: "Community Tier",
-      icon: ChartBarIcon,
-    },
-    {
-      name: "DeFi Arbitrage Bot",
-      category: "Finance",
-      badge: "Silver Verified",
-      icon: CurrencyDollarIcon,
-    },
-    {
-      name: "NFT Minter Agent",
-      category: "Creator Tools",
-      badge: "Community Tier",
-      icon: PaintBrushIcon,
-    },
-  ];
+  useEffect(() => {
+    const loadData = async () => {
+      setLoadingServices(true);
+      try {
+        // Fetch top-rated services for "Featured" section
+        const featuredResult = await backendApi.listServices({ page: 1, limit: 6 });
+        const services: any[] = featuredResult?.data?.services ?? featuredResult?.data ?? [];
+        setFeaturedServices(services.slice(0, 3));
+        setNewServices(services.slice(3, 6));
+
+        // Fetch agent count
+        const agentsResult = await backendApi.listAgents({ page: 1, limit: 1 });
+        setStats({
+          agents: agentsResult?.data?.total ?? agentsResult?.data?.length ?? 0,
+          services: featuredResult?.data?.total ?? services.length,
+        });
+      } catch {
+        // Non-critical — page renders without live data
+      } finally {
+        setLoadingServices(false);
+      }
+    };
+    loadData();
+  }, []);
 
   return (
     <div className="relative overflow-hidden">
@@ -154,41 +143,43 @@ const Home: NextPage = () => {
           </div>
 
           <div className="grid md:grid-cols-3 gap-6">
-            {featuredAgents.map((agent, idx) => {
-              const IconComponent = agent.icon;
-              return (
+            {loadingServices ? (
+              Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="card animate-pulse">
+                  <div className="flex items-center gap-4 mb-4">
+                    <div className="w-16 h-16 rounded-2xl bg-[var(--bg-hover)]" />
+                    <div className="flex-1 space-y-2">
+                      <div className="h-4 bg-[var(--bg-hover)] rounded w-3/4" />
+                      <div className="h-3 bg-[var(--bg-hover)] rounded w-1/2" />
+                    </div>
+                  </div>
+                  <div className="h-6 bg-[var(--bg-hover)] rounded w-1/3" />
+                </div>
+              ))
+            ) : featuredServices.length > 0 ? (
+              featuredServices.map((svc, idx) => (
                 <div
-                  key={idx}
+                  key={svc.id ?? idx}
                   className="card hover:border-[var(--accent-purple)] cursor-pointer group"
                 >
                   <div className="flex flex-col h-full gap-4">
                     <div className="flex items-center gap-4">
                       <div className="w-16 h-16 rounded-2xl gradient-purple flex items-center justify-center group-hover:scale-110 transition-transform shadow-lg flex-shrink-0">
-                        <IconComponent className="w-8 h-8 text-white" />
+                        <CpuChipIcon className="w-8 h-8 text-white" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h3 className="font-bold text-lg truncate">
-                          {agent.name}
-                        </h3>
-                        <p className="text-sm text-[var(--text-secondary)] truncate">
-                          {agent.category}
+                        <h3 className="font-bold text-lg truncate">{svc.name}</h3>
+                        <p className="text-sm text-[var(--text-secondary)] truncate capitalize">
+                          {svc.category ?? "General"}
                         </p>
                       </div>
                     </div>
                     <div className="flex items-center justify-between gap-3 mt-auto">
-                      <span
-                        className={`badge whitespace-nowrap ${
-                          agent.badge.includes("Gold")
-                            ? "badge-orange"
-                            : agent.badge.includes("Silver")
-                              ? "badge-purple"
-                              : "badge-success"
-                        }`}
-                      >
-                        {agent.badge}
+                      <span className={`badge whitespace-nowrap ${svc.is_verified ? "badge-orange" : "badge-success"}`}>
+                        {svc.is_verified ? "Verified" : "Community"}
                       </span>
                       <Link
-                        href="/marketplace"
+                        href={`/service/${svc.id ?? ""}`}
                         className="text-sm text-[var(--accent-purple)] hover:underline font-semibold whitespace-nowrap"
                       >
                         Details →
@@ -196,8 +187,14 @@ const Home: NextPage = () => {
                     </div>
                   </div>
                 </div>
-              );
-            })}
+              ))
+            ) : (
+              <div className="col-span-3 card text-center py-12">
+                <CpuChipIcon className="w-12 h-12 mx-auto text-[var(--text-secondary)] mb-3" />
+                <p className="text-[var(--text-secondary)] mb-4">No services registered yet.</p>
+                <Link href="/service/register" className="btn-primary">Register First Service</Link>
+              </div>
+            )}
           </div>
         </div>
       </section>
@@ -265,40 +262,52 @@ const Home: NextPage = () => {
           <h2 className="text-2xl font-bold mb-6">NEW RELEASES</h2>
 
           <div className="grid md:grid-cols-3 gap-6">
-            {newReleases.map((agent, idx) => {
-              const IconComponent = agent.icon;
-              return (
+            {loadingServices ? (
+              Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="card animate-pulse">
+                  <div className="flex items-center gap-4 mb-4">
+                    <div className="w-14 h-14 rounded-2xl bg-[var(--bg-hover)]" />
+                    <div className="flex-1 space-y-2">
+                      <div className="h-4 bg-[var(--bg-hover)] rounded w-3/4" />
+                      <div className="h-3 bg-[var(--bg-hover)] rounded w-1/2" />
+                    </div>
+                  </div>
+                  <div className="h-5 bg-[var(--bg-hover)] rounded w-1/3" />
+                </div>
+              ))
+            ) : newServices.length > 0 ? (
+              newServices.map((svc, idx) => (
                 <div
-                  key={idx}
+                  key={svc.id ?? idx}
                   className="card hover:border-[var(--accent-purple)] cursor-pointer group"
                 >
                   <div className="flex flex-col h-full gap-4">
                     <div className="flex items-center gap-4">
                       <div className="w-14 h-14 rounded-2xl bg-[var(--bg-hover)] flex items-center justify-center group-hover:bg-[var(--accent-purple)]/10 transition-all shadow-md flex-shrink-0">
-                        <IconComponent className="w-7 h-7 text-[var(--accent-purple)]" />
+                        <CpuChipIcon className="w-7 h-7 text-[var(--accent-purple)]" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h3 className="font-bold truncate">{agent.name}</h3>
-                        <p className="text-xs text-[var(--text-secondary)] truncate">
-                          by BitZen Labs
+                        <h3 className="font-bold truncate">{svc.name}</h3>
+                        <p className="text-xs text-[var(--text-secondary)] truncate capitalize">
+                          {svc.category ?? "General"}
                         </p>
                       </div>
                     </div>
                     <div className="mt-auto">
-                      <span
-                        className={`badge whitespace-nowrap ${
-                          agent.badge.includes("Silver")
-                            ? "badge-purple"
-                            : "badge-success"
-                        }`}
-                      >
-                        {agent.badge}
+                      <span className={`badge whitespace-nowrap ${svc.is_verified ? "badge-purple" : "badge-success"}`}>
+                        {svc.is_verified ? "Verified" : "Community"}
                       </span>
                     </div>
                   </div>
                 </div>
-              );
-            })}
+              ))
+            ) : (
+              <div className="col-span-3 card text-center py-12">
+                <CpuChipIcon className="w-12 h-12 mx-auto text-[var(--text-secondary)] mb-3" />
+                <p className="text-[var(--text-secondary)] mb-4">No services available yet.</p>
+                <Link href="/marketplace" className="text-[var(--accent-purple)] hover:underline">Browse Marketplace →</Link>
+              </div>
+            )}
           </div>
         </div>
       </section>
@@ -339,7 +348,7 @@ const Home: NextPage = () => {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
               <div>
                 <div className="text-4xl font-bold text-[var(--accent-purple)] mb-2">
-                  3
+                  {loadingServices ? "—" : stats.agents > 0 ? stats.agents : "3"}
                 </div>
                 <div className="text-sm text-[var(--text-secondary)]">
                   Smart Contracts
@@ -355,10 +364,10 @@ const Home: NextPage = () => {
               </div>
               <div>
                 <div className="text-4xl font-bold text-[var(--success)] mb-2">
-                  14
+                  {loadingServices ? "—" : stats.services > 0 ? stats.services : "14"}
                 </div>
                 <div className="text-sm text-[var(--text-secondary)]">
-                  Plugin Actions
+                  {stats.services > 0 ? "Registered Services" : "Plugin Actions"}
                 </div>
               </div>
               <div>

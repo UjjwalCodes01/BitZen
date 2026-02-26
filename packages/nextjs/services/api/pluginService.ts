@@ -243,7 +243,7 @@ class PluginService {
 
     try {
       const response = await fetch(
-        `${BACKEND_URL}/api/v1/plugins/account/session/create`,
+        `${BACKEND_URL}/api/v1/plugins/account/session`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -271,7 +271,7 @@ class PluginService {
 
     try {
       const response = await fetch(
-        `${BACKEND_URL}/api/v1/plugins/account/session/${sessionId}/revoke`,
+        `${BACKEND_URL}/api/v1/plugins/account/sessions/${sessionId}/revoke`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -321,7 +321,7 @@ class PluginService {
 
     try {
       const response = await fetch(
-        `${BACKEND_URL}/api/v1/plugins/account/task`,
+        `${BACKEND_URL}/api/v1/plugins/account/execute`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

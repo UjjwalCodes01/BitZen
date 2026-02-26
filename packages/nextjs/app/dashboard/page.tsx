@@ -2,7 +2,7 @@
 
 import type { NextPage } from "next";
 import Link from "next/link";
-import { useAccount } from "@starknet-react/core";
+import { useAccount, useReadContract } from "@starknet-react/core";
 import { useState, useEffect } from "react";
 import {
   ShieldCheckIcon,
@@ -18,6 +18,36 @@ import {
 import { useBackendAuth } from "~~/hooks/bitizen/useBackendAuth";
 import { useAgents } from "~~/hooks/bitizen/useAgents";
 import { useAgentPlugins } from "~~/hooks/bitizen/useAgentPlugins";
+import { backendApi } from "~~/services/api/backendApi";
+
+// STRK ERC-20 on Starknet Sepolia
+const STRK_TOKEN = "0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d";
+const ERC20_ABI = [
+  {
+    name: "balanceOf",
+    type: "function",
+    inputs: [{ name: "account", type: "core::starknet::contract_address::ContractAddress" }],
+    outputs: [{ type: "core::integer::u256" }],
+    state_mutability: "view",
+  },
+] as const;
+
+function formatStrk(raw: bigint | undefined | null): string {
+  if (raw == null) return "0";
+  const r = BigInt(raw.toString());
+  const whole = r / 10n ** 18n;
+  const frac = (r % 10n ** 18n) * 10000n / 10n ** 18n;
+  return `${whole}.${frac.toString().padStart(4, "0")}`;
+}
+
+function formatRelativeTime(ts: number | string): string {
+  const ms = typeof ts === "string" ? new Date(ts).getTime() : ts;
+  const diff = Date.now() - ms;
+  if (diff < 60_000) return "just now";
+  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)} min ago`;
+  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)} hours ago`;
+  return `${Math.floor(diff / 86_400_000)} days ago`;
+}
 
 const Dashboard: NextPage = () => {
   const { address, isConnected } = useAccount();
@@ -25,15 +55,26 @@ const Dashboard: NextPage = () => {
   const agents = useAgents();
   const { account, bitcoin } = useAgentPlugins();
 
-  const [strkBalance, setStrkBalance] = useState<string>("0");
   const [btcBalance, setBtcBalance] = useState<string>("0");
   const [btcBalanceUSD, setBtcBalanceUSD] = useState<string>("0");
   const [sessionsCount, setSessionsCount] = useState<number>(0);
+  const [activeSessions, setActiveSessions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [exchangeRate, setExchangeRate] = useState<number>(45161);
+  const [primaryAgent, setPrimaryAgent] = useState<any>(null);
+  const [recentActivity, setRecentActivity] = useState<any[]>([]);
 
-  // Get the first registered agent (if any) - Mock for now
-  const primaryAgent = null; // TODO: Get from agents hook when available
+  // Real STRK balance from chain via ERC-20 balanceOf
+  const { data: strkRawBalance } = useReadContract({
+    functionName: "balanceOf",
+    address: STRK_TOKEN,
+    abi: ERC20_ABI,
+    args: address ? [address] : undefined,
+    enabled: !!address && isConnected,
+    watch: true,
+  });
+
+  const strkBalance = formatStrk(strkRawBalance as bigint | undefined);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -50,28 +91,58 @@ const Dashboard: NextPage = () => {
           setExchangeRate(ratesResult.data.BTC_STRK);
         }
 
-        // Fetch Bitcoin balance (mock BTC address for demo)
-        const btcResult = await bitcoin.getBalance(
-          "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh",
-        );
-        if (btcResult.success && btcResult.data) {
-          setBtcBalance(btcResult.data.balance);
-          setBtcBalanceUSD(btcResult.data.balanceUSD);
+        // Fetch Bitcoin balance using linked address from localStorage
+        const linkedBtcAddress =
+          typeof window !== "undefined"
+            ? localStorage.getItem("bitizen_btc_address")
+            : null;
+        if (linkedBtcAddress) {
+          const btcResult = await bitcoin.getBalance(linkedBtcAddress);
+          if (btcResult.success && btcResult.data) {
+            setBtcBalance(btcResult.data.balance);
+            setBtcBalanceUSD(btcResult.data.balanceUSD);
+          }
         }
 
-        // Fetch active sessions
+        // Fetch active sessions count
         const sessionsResult = await account.listActiveSessions();
-        if (sessionsResult.success && sessionsResult.data) {
-          setSessionsCount(
-            sessionsResult.data.count ||
-              sessionsResult.data.sessions?.length ||
-              0,
-          );
+        const sessions = sessionsResult?.data?.sessions ?? [];
+        setSessionsCount(sessionsResult?.data?.count ?? sessions.length);
+        setActiveSessions(sessions);
+
+        // Fetch primary agent info from backend
+        let agentData: any = null;
+        try {
+          const agentResult = await backendApi.getAgent(address);
+          agentData = agentResult?.data ?? null;
+          if (agentData) setPrimaryAgent(agentData);
+        } catch {
+          // Not registered yet — normal state
         }
 
-        // Get agent info if available
-        // Using mock STRK balance since we don't have on-chain balance query yet
-        setStrkBalance("245.67");
+        // Build activity feed from real data
+        const activities: any[] = [];
+        if (agentData) {
+          activities.push({
+            id: "reg-agent",
+            type: "Registration",
+            description: "Agent registered on-chain",
+            amount: "ZK Proof verified",
+            time: formatRelativeTime(agentData.created_at || agentData.registeredAt || Date.now()),
+            status: "completed",
+          });
+        }
+        sessions.slice(0, 3).forEach((s: any, i: number) => {
+          activities.push({
+            id: `sess-${i}`,
+            type: "Session Created",
+            description: "Session key generated",
+            amount: `${s.expirationBlocks ?? "?"} blocks`,
+            time: formatRelativeTime(s.createdAt || Date.now()),
+            status: s.status === "active" ? "completed" : s.status,
+          });
+        });
+        setRecentActivity(activities);
       } catch (error) {
         console.error("Failed to fetch dashboard data:", error);
       } finally {
@@ -80,43 +151,7 @@ const Dashboard: NextPage = () => {
     };
 
     fetchDashboardData();
-  }, [isConnected, address, bitcoin, account]);
-
-  // Mock activity data
-  const recentActivity = [
-    {
-      id: 1,
-      type: "Swap",
-      description: "BTC → STRK",
-      amount: "0.001 BTC",
-      time: "2 hours ago",
-      status: "completed",
-    },
-    {
-      id: 2,
-      type: "Session Created",
-      description: "New session key generated",
-      amount: "30 days",
-      time: "5 hours ago",
-      status: "completed",
-    },
-    {
-      id: 3,
-      type: "Service Call",
-      description: "Oracle Agent invoked",
-      amount: "0.5 STRK",
-      time: "1 day ago",
-      status: "completed",
-    },
-    {
-      id: 4,
-      type: "Registration",
-      description: "Agent registered",
-      amount: "ZK Proof verified",
-      time: "3 days ago",
-      status: "completed",
-    },
-  ];
+  }, [isConnected, address]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="min-h-screen py-8 px-4">
@@ -437,46 +472,39 @@ const Dashboard: NextPage = () => {
                   </div>
 
                   <div className="space-y-3">
-                    <div className="p-3 rounded-xl bg-[var(--bg-hover)] border border-[var(--accent-purple)]/30">
-                      <div className="flex items-center gap-2 mb-2">
-                        <KeyIcon className="w-4 h-4 text-[var(--accent-purple)]" />
-                        <span className="font-mono text-sm">0x1a2b...3c4d</span>
-                      </div>
-                      <div className="flex justify-between text-xs">
-                        <span className="text-[var(--text-secondary)]">
-                          Expires in 12 days
-                        </span>
-                        <span className="text-[var(--success)]">Active</span>
-                      </div>
-                    </div>
-
-                    <div className="p-3 rounded-xl bg-[var(--bg-hover)] border border-[var(--accent-purple)]/30">
-                      <div className="flex items-center gap-2 mb-2">
-                        <KeyIcon className="w-4 h-4 text-[var(--accent-purple)]" />
-                        <span className="font-mono text-sm">0x5e6f...7g8h</span>
-                      </div>
-                      <div className="flex justify-between text-xs">
-                        <span className="text-[var(--text-secondary)]">
-                          Expires in 25 days
-                        </span>
-                        <span className="text-[var(--success)]">Active</span>
-                      </div>
-                    </div>
-
-                    <div className="p-3 rounded-xl bg-[var(--bg-hover)] border border-[var(--accent-purple)]/30">
-                      <div className="flex items-center gap-2 mb-2">
-                        <KeyIcon className="w-4 h-4 text-[var(--accent-purple)]" />
-                        <span className="font-mono text-sm">0x9i0j...1k2l</span>
-                      </div>
-                      <div className="flex justify-between text-xs">
-                        <span className="text-[var(--text-secondary)]">
-                          Expires in 3 days
-                        </span>
-                        <span className="text-[var(--warning)]">
-                          Expiring Soon
-                        </span>
-                      </div>
-                    </div>
+                    {activeSessions.length === 0 ? (
+                      <p className="text-sm text-[var(--text-muted)] text-center py-4">
+                        No active sessions
+                      </p>
+                    ) : (
+                      activeSessions.slice(0, 3).map((s: any) => {
+                        const msLeft = (s.expiresAt || 0) - Date.now();
+                        const daysLeft = Math.max(0, Math.floor(msLeft / 86_400_000));
+                        const expiringSoon = daysLeft <= 3 && daysLeft > 0;
+                        const shortKey = s.publicKey
+                          ? `${s.publicKey.slice(0, 6)}...${s.publicKey.slice(-4)}`
+                          : s.sessionId?.slice(0, 14) + "...";
+                        return (
+                          <div
+                            key={s.sessionId}
+                            className="p-3 rounded-xl bg-[var(--bg-hover)] border border-[var(--accent-purple)]/30"
+                          >
+                            <div className="flex items-center gap-2 mb-2">
+                              <KeyIcon className="w-4 h-4 text-[var(--accent-purple)]" />
+                              <span className="font-mono text-sm">{shortKey}</span>
+                            </div>
+                            <div className="flex justify-between text-xs">
+                              <span className="text-[var(--text-secondary)]">
+                                {daysLeft > 0 ? `Expires in ${daysLeft}d` : "Expired"}
+                              </span>
+                              <span className={expiringSoon ? "text-[var(--warning)]" : "text-[var(--success)]"}>
+                                {expiringSoon ? "Expiring Soon" : s.status === "active" ? "Active" : s.status}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
                   </div>
 
                   <Link

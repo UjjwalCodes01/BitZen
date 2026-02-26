@@ -2,21 +2,16 @@
 
 import type { NextPage } from "next";
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   MagnifyingGlassIcon,
   FunnelIcon,
   StarIcon,
   ShieldCheckIcon,
   CurrencyDollarIcon,
-  LockClosedIcon,
   CogIcon,
-  BuildingLibraryIcon,
-  ChartBarIcon,
-  BoltIcon,
-  PaintBrushIcon,
 } from "@heroicons/react/24/solid";
-import { StarIcon as StarOutline } from "@heroicons/react/24/outline";
+import { backendApi } from "~~/services/api/backendApi";
 
 const Marketplace: NextPage = () => {
   const [searchQuery, setSearchQuery] = useState("");
@@ -26,150 +21,56 @@ const Marketplace: NextPage = () => {
   const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
 
-  // Mock services data
-  const allServices = [
-    {
-      id: 1,
-      name: "ZK Passport Agent",
-      category: "Identity",
-      description:
-        "Generate and verify zero-knowledge identity proofs on Starknet",
-      rating: 4.8,
-      stake: 850,
-      auditors: 12,
-      verified: true,
-      icon: LockClosedIcon,
-      price: "0.5 STRK/call",
-    },
-    {
-      id: 2,
-      name: "Bitcoin Swap Bot",
-      category: "Finance",
-      description: "Automated BTC ↔ STRK swaps via Garden Finance protocol",
-      rating: 4.9,
-      stake: 1200,
-      auditors: 18,
-      verified: true,
-      icon: CurrencyDollarIcon,
-      price: "0.3 STRK/swap",
-    },
-    {
-      id: 3,
-      name: "Oracle Agent",
-      category: "Data",
-      description: "Real-time price feeds and off-chain data aggregation",
-      rating: 4.5,
-      stake: 650,
-      auditors: 8,
-      verified: false,
-      icon: ChartBarIcon,
-      price: "0.2 STRK/query",
-    },
-    {
-      id: 4,
-      name: "Session Manager",
-      category: "Utilities",
-      description: "Create and manage autonomous session keys for your agent",
-      rating: 4.7,
-      stake: 720,
-      auditors: 10,
-      verified: true,
-      icon: BoltIcon,
-      price: "1 STRK/month",
-    },
-    {
-      id: 5,
-      name: "DeFi Arbitrage Bot",
-      category: "Finance",
-      description: "Automated arbitrage opportunities across Starknet DEXs",
-      rating: 4.6,
-      stake: 980,
-      auditors: 15,
-      verified: true,
-      icon: BuildingLibraryIcon,
-      price: "5% profit share",
-    },
-    {
-      id: 6,
-      name: "NFT Minter Agent",
-      category: "Creator",
-      description: "Batch mint NFTs with customizable metadata on Starknet",
-      rating: 4.3,
-      stake: 420,
-      auditors: 6,
-      verified: false,
-      icon: PaintBrushIcon,
-      price: "0.8 STRK/mint",
-    },
-    {
-      id: 7,
-      name: "Smart Wallet Guardian",
-      category: "Utilities",
-      description:
-        "Advanced wallet security with multi-sig and spending limits",
-      rating: 4.9,
-      stake: 1500,
-      auditors: 22,
-      verified: true,
-      icon: ShieldCheckIcon,
-      price: "2 STRK/month",
-    },
-    {
-      id: 8,
-      name: "Yield Optimizer",
-      category: "DeFi",
-      description: "Maximize yields across lending protocols automatically",
-      rating: 4.7,
-      stake: 1100,
-      auditors: 16,
-      verified: true,
-      icon: ChartBarIcon,
-      price: "3% profit share",
-    },
-    {
-      id: 9,
-      name: "Identity Verifier",
-      category: "Identity",
-      description: "KYC and identity verification with privacy preservation",
-      rating: 4.4,
-      stake: 550,
-      auditors: 7,
-      verified: false,
-      icon: LockClosedIcon,
-      price: "1 STRK/verification",
-    },
-  ];
+  const [allServices, setAllServices] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const LIMIT = 12;
 
-  // Filter and sort services
+  useEffect(() => {
+    const fetchServices = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const result = await backendApi.listServices({
+          category: selectedCategory !== "all" ? selectedCategory : undefined,
+          minStake: minStake > 0 ? minStake.toString() : undefined,
+          page,
+          limit: LIMIT,
+        });
+        const services: any[] = result?.data?.services ?? result?.data ?? [];
+        const total: number = result?.data?.total ?? services.length;
+        setAllServices(services);
+        setTotalPages(Math.max(1, Math.ceil(total / LIMIT)));
+      } catch (err: any) {
+        setError(err.message || "Failed to load services");
+        setAllServices([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchServices();
+  }, [selectedCategory, minStake, page]);
+
+  // Filter / sort client-side (search text + verified filter)
   const filteredServices = allServices
     .filter((service) => {
       const matchesSearch =
-        service.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        service.description.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesCategory =
-        selectedCategory === "all" || service.category === selectedCategory;
-      const matchesStake = service.stake >= minStake;
-      const matchesVerified = !verifiedOnly || service.verified;
-      return (
-        matchesSearch && matchesCategory && matchesStake && matchesVerified
-      );
+        !searchQuery ||
+        service.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        service.description?.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesVerified = !verifiedOnly || service.is_verified || service.verified;
+      return matchesSearch && matchesVerified;
     })
     .sort((a, b) => {
-      if (sortBy === "rating") return b.rating - a.rating;
-      if (sortBy === "stake") return b.stake - a.stake;
-      if (sortBy === "newest") return b.id - a.id;
+      if (sortBy === "rating") return (b.average_rating ?? b.rating ?? 0) - (a.average_rating ?? a.rating ?? 0);
+      if (sortBy === "stake") return (parseFloat(b.total_stake ?? b.stake ?? 0)) - (parseFloat(a.total_stake ?? a.stake ?? 0));
+      if (sortBy === "newest") return new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime();
       return 0;
     });
 
-  const categories = [
-    "all",
-    "Finance",
-    "Identity",
-    "Utilities",
-    "DeFi",
-    "Data",
-    "Creator",
-  ];
+  const categories = ["all", "Finance", "Identity", "Utilities", "DeFi", "Data", "Creator"];
 
   return (
     <div className="min-h-screen py-8 px-4">
@@ -200,7 +101,7 @@ const Marketplace: NextPage = () => {
             {/* Category Dropdown */}
             <select
               value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value)}
+              onChange={(e) => { setSelectedCategory(e.target.value); setPage(1); }}
               className="px-4 py-3 bg-[var(--bg-dark)] border border-[var(--border-color)] rounded-xl focus:outline-none focus:border-[var(--accent-purple)] transition-colors text-[var(--text-primary)] cursor-pointer"
             >
               {categories.map((cat) => (
@@ -249,7 +150,7 @@ const Marketplace: NextPage = () => {
                   max="2000"
                   step="100"
                   value={minStake}
-                  onChange={(e) => setMinStake(Number(e.target.value))}
+                  onChange={(e) => { setMinStake(Number(e.target.value)); setPage(1); }}
                   className="w-full h-2 bg-[var(--bg-dark)] rounded-lg appearance-none cursor-pointer accent-[var(--accent-purple)]"
                 />
                 <div className="flex justify-between text-xs text-[var(--text-muted)] mt-1">
@@ -267,9 +168,7 @@ const Marketplace: NextPage = () => {
                     onChange={(e) => setVerifiedOnly(e.target.checked)}
                     className="w-5 h-5 rounded border-[var(--border-color)] bg-[var(--bg-dark)] checked:bg-[var(--accent-purple)] cursor-pointer accent-[var(--accent-purple)]"
                   />
-                  <span className="font-semibold">
-                    Show Verified Agents Only
-                  </span>
+                  <span className="font-semibold">Show Verified Agents Only</span>
                   <ShieldCheckIcon className="w-5 h-5 text-[var(--accent-purple)]" />
                 </label>
               </div>
@@ -282,17 +181,47 @@ const Marketplace: NextPage = () => {
           <p className="text-[var(--text-secondary)]">
             Showing{" "}
             <span className="font-bold text-[var(--text-primary)]">
-              {filteredServices.length}
+              {loading ? "..." : filteredServices.length}
             </span>{" "}
             results
           </p>
         </div>
 
+        {/* Loading State */}
+        {loading && (
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="card animate-pulse">
+                <div className="h-14 w-14 rounded-2xl bg-[var(--bg-hover)] mb-4" />
+                <div className="h-4 bg-[var(--bg-hover)] rounded mb-2 w-3/4" />
+                <div className="h-3 bg-[var(--bg-hover)] rounded w-full mb-4" />
+                <div className="h-3 bg-[var(--bg-hover)] rounded w-1/2" />
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Error State */}
+        {!loading && error && (
+          <div className="card text-center py-8 border border-red-500/30">
+            <p className="text-red-400">{error}</p>
+            <button
+              onClick={() => setPage(1)}
+              className="btn-outline mt-4"
+            >
+              Retry
+            </button>
+          </div>
+        )}
+
         {/* Services Grid */}
-        {filteredServices.length > 0 ? (
+        {!loading && !error && filteredServices.length > 0 && (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
             {filteredServices.map((service) => {
-              const IconComponent = service.icon;
+              const rating = parseFloat(service.average_rating ?? service.rating ?? 0).toFixed(1);
+              const stake = parseFloat(service.total_stake ?? service.stake ?? 0).toFixed(0);
+              const auditors = service.auditor_count ?? service.auditors ?? 0;
+              const isVerified = service.is_verified ?? service.verified ?? false;
               return (
                 <Link
                   key={service.id}
@@ -303,14 +232,12 @@ const Marketplace: NextPage = () => {
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex items-center gap-3">
                       <div className="w-14 h-14 rounded-2xl gradient-purple flex items-center justify-center group-hover:scale-110 transition-transform shadow-lg flex-shrink-0">
-                        <IconComponent className="w-7 h-7 text-white" />
+                        <CogIcon className="w-7 h-7 text-white" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h3 className="font-bold text-lg truncate">
-                          {service.name}
-                        </h3>
+                        <h3 className="font-bold text-lg truncate">{service.name}</h3>
                         <span className="badge badge-purple text-xs whitespace-nowrap">
-                          {service.category}
+                          {service.category || "Service"}
                         </span>
                       </div>
                     </div>
@@ -323,36 +250,29 @@ const Marketplace: NextPage = () => {
 
                   {/* Stats Row */}
                   <div className="flex items-center gap-4 mb-4 text-sm">
-                    {/* Rating */}
                     <div className="flex items-center gap-1">
                       <StarIcon className="w-4 h-4 text-[var(--accent-orange)]" />
-                      <span className="font-semibold">{service.rating}</span>
+                      <span className="font-semibold">{rating}</span>
                     </div>
-
-                    {/* Stake */}
                     <div className="flex items-center gap-1 text-[var(--text-secondary)]">
                       <CurrencyDollarIcon className="w-4 h-4" />
-                      <span>{service.stake} STRK</span>
+                      <span>{stake} STRK</span>
                     </div>
-
-                    {/* Auditors */}
                     <div className="flex items-center gap-1 text-[var(--text-secondary)]">
                       <ShieldCheckIcon className="w-4 h-4" />
-                      <span>{service.auditors}</span>
+                      <span>{auditors}</span>
                     </div>
                   </div>
 
                   {/* Footer */}
                   <div className="flex items-center justify-between pt-4 border-t border-[var(--border-color)]">
                     <div>
-                      <div className="text-xs text-[var(--text-muted)]">
-                        Price
-                      </div>
-                      <div className="font-bold text-sm text-[var(--accent-orange)]">
-                        {service.price}
+                      <div className="text-xs text-[var(--text-muted)]">Endpoint</div>
+                      <div className="font-mono text-xs text-[var(--text-secondary)] truncate max-w-[140px]">
+                        {service.endpoint || "—"}
                       </div>
                     </div>
-                    {service.verified && (
+                    {isVerified && (
                       <span className="badge badge-success text-xs inline-flex items-center gap-1">
                         <ShieldCheckIcon className="w-3 h-3" />
                         Verified
@@ -363,14 +283,15 @@ const Marketplace: NextPage = () => {
               );
             })}
           </div>
-        ) : (
-          /* Empty State */
+        )}
+
+        {/* Empty State */}
+        {!loading && !error && filteredServices.length === 0 && (
           <div className="card text-center py-16">
             <MagnifyingGlassIcon className="w-24 h-24 text-[var(--text-muted)] mx-auto mb-6 opacity-50" />
             <h2 className="text-2xl font-bold mb-4">No services found</h2>
             <p className="text-[var(--text-secondary)] mb-8 max-w-md mx-auto">
-              Try adjusting your search or filters to find what you're looking
-              for.
+              No services are registered yet, or none match your filters.
             </p>
             <button
               onClick={() => {
@@ -378,6 +299,7 @@ const Marketplace: NextPage = () => {
                 setSelectedCategory("all");
                 setMinStake(0);
                 setVerifiedOnly(false);
+                setPage(1);
               }}
               className="btn-outline"
             >
@@ -386,21 +308,22 @@ const Marketplace: NextPage = () => {
           </div>
         )}
 
-        {/* Pagination (Mock) */}
-        {filteredServices.length > 0 && (
+        {/* Pagination */}
+        {!loading && totalPages > 1 && (
           <div className="flex justify-center gap-2">
-            <button className="px-4 py-2 rounded-xl bg-[var(--accent-purple)] text-white font-semibold">
-              1
-            </button>
-            <button className="px-4 py-2 rounded-xl bg-[var(--bg-hover)] hover:bg-[var(--bg-dark)] transition-colors">
-              2
-            </button>
-            <button className="px-4 py-2 rounded-xl bg-[var(--bg-hover)] hover:bg-[var(--bg-dark)] transition-colors">
-              3
-            </button>
-            <button className="px-4 py-2 rounded-xl bg-[var(--bg-hover)] hover:bg-[var(--bg-dark)] transition-colors">
-              Next →
-            </button>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+              <button
+                key={p}
+                onClick={() => setPage(p)}
+                className={`px-4 py-2 rounded-xl font-semibold transition-colors ${
+                  p === page
+                    ? "bg-[var(--accent-purple)] text-white"
+                    : "bg-[var(--bg-hover)] hover:bg-[var(--bg-dark)]"
+                }`}
+              >
+                {p}
+              </button>
+            ))}
           </div>
         )}
       </div>

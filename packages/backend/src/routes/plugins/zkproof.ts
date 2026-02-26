@@ -22,6 +22,7 @@ import os from 'os';
 import { execSync } from 'child_process';
 import { logger } from '../../utils/logger';
 import { buildPoseidon } from 'circomlibjs';
+import { saveProof, getProof, listProofsByAgent } from '../../database/proofs';
 
 // snarkjs is a CJS module — import via require
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -34,13 +35,12 @@ const CIRCUITS_DIR = path.resolve(__dirname, '../../../../circuits');
 const WASM_PATH    = path.join(CIRCUITS_DIR, 'agent_identity_js', 'agent_identity.wasm');
 const ZKEY_PATH    = path.join(CIRCUITS_DIR, 'agent_id_final.zkey');
 const VK_PATH      = path.join(CIRCUITS_DIR, 'verification_key.json');
-const GARAGA_BIN   = '/home/ujwal/Desktop/coding/BitZen/garaga-env/bin/garaga';
+// GARAGA_BIN: set GARAGA_BIN env var in production, falls back to PATH lookup
+const GARAGA_BIN   = process.env.GARAGA_BIN || 'garaga';
 
 // Proof TTL: 24 hours
 const PROOF_TTL_SECONDS = 86400;
 
-// In-memory index — use persistent DB in production
-const proofStore = new Map<string, any>();
 
 /**
  * Compute Poseidon(secret, agentAddress) — must match circuit constraint.
@@ -108,45 +108,37 @@ router.post('/generate', async (req: Request, res: Response) => {
     fs.writeFileSync(pubInputFile, JSON.stringify(publicSignals));
 
     let calldata: string[];
+    // Use --format snforge which outputs one hex string per line.
+    // CRITICAL: --format array outputs JSON numbers which JavaScript JSON.parse
+    // truncates to float64 (~53 bits). Garaga values need up to 96 bits.
+    // --format snforge avoids this precision loss entirely.
+    const calldataFile = path.join(os.tmpdir(), `garaga_calldata_${Date.now()}.txt`);
     try {
-      const out = execSync(
-        `${GARAGA_BIN} calldata --system groth16 --vk ${VK_PATH} --proof ${proofFile} --public-inputs ${pubInputFile} --format array`,
+      execSync(
+        `${GARAGA_BIN} calldata --system groth16 --vk ${VK_PATH} --proof ${proofFile} --public-inputs ${pubInputFile} --format snforge --output-path ${path.dirname(calldataFile)}`,
         {
           encoding: 'utf8',
-          timeout: 30000,
+          timeout: 60000,
           env: { ...process.env },
         },
-      ).trim();
-
-      // --format array outputs: [val1, val2, val3, ...]
-      const arrayMatch = out.match(/\[([^\]]+)\]/s);
-      if (arrayMatch) {
-        calldata = arrayMatch[1].split(',').map((s: string) => s.trim()).filter(Boolean);
-      } else {
-        throw new Error('Unexpected garaga output format');
-      }
+      );
+      // garaga writes to <output-path>/proof_calldata.txt
+      const snforgeOut = path.join(path.dirname(calldataFile), 'proof_calldata.txt');
+      calldata = fs.readFileSync(snforgeOut, 'utf8').trim().split('\n').map((l: string) => l.trim()).filter(Boolean);
+      if (calldata.length === 0) throw new Error('Empty garaga output');
+      logger.info(`Garaga calldata generated: ${calldata.length} felt252 elements`);
     } catch (e: any) {
-      logger.warn('garaga calldata fell back to raw encoding:', e.message);
-      // Fallback: encode raw Groth16 elements + public inputs
-      calldata = [
-        BigInt(proof.pi_a[0]).toString(),
-        BigInt(proof.pi_a[1]).toString(),
-        BigInt(proof.pi_b[0][1]).toString(),
-        BigInt(proof.pi_b[0][0]).toString(),
-        BigInt(proof.pi_b[1][1]).toString(),
-        BigInt(proof.pi_b[1][0]).toString(),
-        BigInt(proof.pi_c[0]).toString(),
-        BigInt(proof.pi_c[1]).toString(),
-        ...publicSignals.map((s: string) => BigInt(s).toString()),
-      ];
+      logger.error('garaga calldata failed:', e.message);
+      throw new Error(`Failed to generate garaga calldata: ${e.message}. Ensure GARAGA_BIN is set and the garaga CLI is installed.`);
     } finally {
       if (fs.existsSync(proofFile)) fs.unlinkSync(proofFile);
       if (fs.existsSync(pubInputFile)) fs.unlinkSync(pubInputFile);
+      if (fs.existsSync(calldataFile)) fs.unlinkSync(calldataFile);
     }
 
     const proofId = `proof_${Date.now()}_${secretBigInt.toString(16).slice(0, 8)}`;
 
-    proofStore.set(proofId, {
+    await saveProof({
       proofId,
       agentAddress,
       proof,
@@ -230,7 +222,7 @@ router.get('/status/:proofId', async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, error: 'Proof ID required' });
     }
 
-    const record = proofStore.get(proofId);
+    const record = await getProof(proofId);
     if (!record) {
       return res.status(404).json({ success: false, error: `Proof ${proofId} not found` });
     }
@@ -263,16 +255,15 @@ router.get('/agent/:agentAddress', async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, error: 'Agent address required' });
     }
 
-    const agentProofs = Array.from(proofStore.values())
-      .filter((p) => p.agentAddress === agentAddress)
-      .map((p) => ({
-        proofId:    p.proofId,
-        status:     p.status,
-        commitment: p.commitment,
-        createdAt:  p.createdAt,
-        expiresAt:  p.expiresAt,
-        isExpired:  Date.now() / 1000 > p.expiresAt,
-      }));
+    const rawProofs = await listProofsByAgent(agentAddress);
+    const agentProofs = rawProofs.map((p) => ({
+      proofId:    p.proofId,
+      status:     p.status,
+      commitment: p.commitment,
+      createdAt:  p.createdAt,
+      expiresAt:  p.expiresAt,
+      isExpired:  Date.now() / 1000 > p.expiresAt,
+    }));
 
     return res.json({
       success: true,

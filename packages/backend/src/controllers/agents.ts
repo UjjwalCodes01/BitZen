@@ -3,6 +3,12 @@ import { validationResult } from 'express-validator';
 import { asyncHandler, AppError } from '../middleware/errorHandler';
 import { StarknetService } from '../services/starknet';
 import { AgentService } from '../services/agent';
+import { ec, stark } from 'starknet';
+import crypto from 'crypto';
+import {
+  createSession as createPluginSession,
+  listSessionsByAgent,
+} from '../database/sessions';
 import { logger } from '../utils/logger';
 
 const starknetService = new StarknetService();
@@ -146,43 +152,69 @@ export class AgentController {
   });
 
   /**
-   * Create session key for agent
+   * Create session key for agent — stores in plugin_sessions (shared with plugin endpoint).
    * POST /api/v1/agents/:address/sessions
    */
   createSession = asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const { address } = req.params;
-    const { session_public_key, expiration_block, max_spend_per_tx, allowed_methods } = req.body;
+    const {
+      // Plugin format
+      expirationBlocks, permissions, metadata,
+      // Legacy format
+      session_public_key, expiration_block, max_spend_per_tx, allowed_methods,
+    } = req.body;
 
     // Verify ownership
     if (req.user?.address !== address) {
       throw new AppError('Unauthorized', 403);
     }
 
-    // Create session on-chain
-    const txHash = await starknetService.createSession(
-      address,
-      session_public_key,
-      expiration_block,
-      max_spend_per_tx,
-      allowed_methods
-    );
+    // Generate new session key pair server-side (deterministic security)
+    const sessionId = `session_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
+    const privateKey = stark.randomAddress();
+    const publicKey = session_public_key
+      ? session_public_key
+      : '0x' + Buffer.from(ec.starkCurve.getPublicKey(privateKey, true)).toString('hex');
 
-    // Save session to database
-    const session = await agentService.createSession({
-      agent_address: address,
-      session_key: session_public_key,
-      expiration_block,
-      max_spend: max_spend_per_tx,
-      tx_hash: txHash
-    });
+    const blocks = expirationBlocks ?? expiration_block ?? 2400; // ~5 days
+    const perms: string[] = permissions ?? allowed_methods ?? ['execute', 'swap', 'stake'];
+
+    const sessionRecord = {
+      sessionId,
+      agentAddress: address,
+      publicKey,
+      privateKey,
+      permissions: perms,
+      expirationBlocks: Number(blocks),
+      expiresAt: Date.now() + Number(blocks) * 180000, // ~3 min/block
+      spendingLimit: {
+        daily: metadata?.dailyLimit ?? String(max_spend_per_tx ?? '1000'),
+        perTransaction: metadata?.transactionLimit ?? '100',
+        currency: 'STRK',
+      },
+      usage: { totalSpent: '0', transactionCount: 0, lastUsed: null },
+      status: 'active' as const,
+      createdAt: Date.now(),
+      metadata: metadata ?? {},
+    };
+
+    // Persist to plugin_sessions (same table used by /plugins/account/execute)
+    await createPluginSession(sessionRecord);
+    logger.info(`Session created via agents route: ${sessionId} for ${address}`);
 
     res.status(201).json({
       success: true,
       message: 'Session created successfully',
       data: {
-        session,
-        tx_hash: txHash
-      }
+        sessionId,
+        publicKey,
+        permissions: perms,
+        expirationBlocks: Number(blocks),
+        expiresAt: sessionRecord.expiresAt,
+        spendingLimit: sessionRecord.spendingLimit,
+        status: 'active',
+        createdAt: sessionRecord.createdAt,
+      },
     });
   });
 
@@ -193,11 +225,22 @@ export class AgentController {
   getSessions = asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const { address } = req.params;
 
-    const sessions = await agentService.getAgentSessions(address);
+    // Return from unified plugin_sessions table
+    const sessions = await listSessionsByAgent(address);
 
     res.status(200).json({
       success: true,
-      data: sessions
+      data: sessions.map((s) => ({
+        sessionId: s.sessionId,
+        publicKey: s.publicKey,
+        permissions: s.permissions,
+        expiresAt: s.expiresAt,
+        isExpired: Date.now() > s.expiresAt,
+        spendingLimit: s.spendingLimit,
+        usage: s.usage,
+        status: Date.now() > s.expiresAt ? 'expired' : s.status,
+        createdAt: s.createdAt,
+      }))
     });
   });
 }

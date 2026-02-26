@@ -2,7 +2,7 @@
 
 import type { NextPage } from "next";
 import { useState, useEffect } from "react";
-import { useAccount } from "@starknet-react/core";
+import { useAccount, useReadContract } from "@starknet-react/core";
 import {
   ArrowsUpDownIcon,
   CurrencyDollarIcon,
@@ -13,6 +13,19 @@ import {
   InformationCircleIcon,
 } from "@heroicons/react/24/solid";
 import { useAgentPlugins } from "~~/hooks/bitizen/useAgentPlugins";
+import { backendApi } from "~~/services/api/backendApi";
+
+// STRK ERC-20 on Starknet Sepolia
+const STRK_TOKEN = "0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d";
+const ERC20_ABI = [
+  {
+    name: "balanceOf",
+    type: "function",
+    inputs: [{ name: "account", type: "core::starknet::contract_address::ContractAddress" }],
+    outputs: [{ type: "core::integer::u256" }],
+    state_mutability: "view",
+  },
+] as const;
 
 const Swap: NextPage = () => {
   const { address, isConnected } = useAccount();
@@ -22,9 +35,12 @@ const Swap: NextPage = () => {
   const [toToken, setToToken] = useState<"BTC" | "STRK">("STRK");
   const [fromAmount, setFromAmount] = useState("");
   const [toAmount, setToAmount] = useState("");
-  const [btcAddress, setBtcAddress] = useState<string | null>(null);
+  const [btcAddress, setBtcAddress] = useState<string | null>(() => {
+    if (typeof window !== "undefined") return localStorage.getItem("bitizen_btc_address");
+    return null;
+  });
   const [showLinkModal, setShowLinkModal] = useState(false);
-  const [exchangeRate, setExchangeRate] = useState(45230); // 1 BTC = 45,230 STRK
+  const [exchangeRate, setExchangeRate] = useState(45230);
   const [quoteLoading, setQuoteLoading] = useState(false);
   const [hasQuote, setHasQuote] = useState(false);
   const [swapping, setSwapping] = useState(false);
@@ -32,10 +48,21 @@ const Swap: NextPage = () => {
   const [swapId, setSwapId] = useState<string | null>(null);
   const [quoteData, setQuoteData] = useState<any>(null);
   const [ratesLoading, setRatesLoading] = useState(true);
+  const [recentSwaps, setRecentSwaps] = useState<any[]>([]);
+  const [btcBalance, setBtcBalance] = useState<string>("0");
+  const [btcBalanceUSD, setBtcBalanceUSD] = useState<string>("0");
+  const [isMockData, setIsMockData] = useState(false);
 
-  // Mock balances
-  const btcBalance = "0.05234";
-  const strkBalance = "1,245.67";
+  // Real STRK balance from chain
+  const { data: strkRawBalance } = useReadContract({
+    functionName: "balanceOf",
+    address: STRK_TOKEN,
+    abi: ERC20_ABI,
+    args: address ? [address] : undefined,
+    enabled: !!address && isConnected,
+    watch: true,
+  });
+  const strkBalance = strkRawBalance ? (Number(strkRawBalance) / 1e18).toFixed(4) : "0";
 
   // Fetch real exchange rates on mount
   useEffect(() => {
@@ -45,6 +72,7 @@ const Swap: NextPage = () => {
         const result = await bitcoin.getExchangeRates();
         if (result.success && result.data) {
           setExchangeRate(result.data.BTC_STRK);
+          if (result.data.isMock) setIsMockData(true);
         }
       } catch (error) {
         console.error("Failed to fetch rates:", error);
@@ -55,36 +83,34 @@ const Swap: NextPage = () => {
     fetchRates();
   }, [bitcoin]);
 
-  // Mock recent swaps
-  const recentSwaps = [
-    {
-      id: 1,
-      from: "BTC",
-      to: "STRK",
-      amount: "0.001 BTC",
-      received: "45.23 STRK",
-      status: "completed",
-      time: "2 hours ago",
-    },
-    {
-      id: 2,
-      from: "STRK",
-      to: "BTC",
-      amount: "100 STRK",
-      received: "0.00221 BTC",
-      status: "completed",
-      time: "1 day ago",
-    },
-    {
-      id: 3,
-      from: "BTC",
-      to: "STRK",
-      amount: "0.005 BTC",
-      received: "226.15 STRK",
-      status: "pending",
-      time: "3 days ago",
-    },
-  ];
+  // Fetch real BTC balance when btcAddress changes
+  useEffect(() => {
+    if (!btcAddress) { setBtcBalance("0"); setBtcBalanceUSD("0"); return; }
+    bitcoin.getBalance(btcAddress).then((r) => {
+      if (r.success && r.data) {
+        setBtcBalance(r.data.balance ?? r.data.balanceBTC ?? "0");
+        setBtcBalanceUSD(r.data.balanceUSD ?? "0");
+        if (r.data.isMock) setIsMockData(true);
+      }
+    }).catch(() => {});
+  }, [btcAddress, bitcoin]);
+
+  // Fetch recent swap history from backend
+  useEffect(() => {
+    if (!address) return;
+    backendApi.listServices({ limit: 5 } as any)
+      .then(() => {/* services loaded */})
+      .catch(() => {});
+    // Swap history: attempt to fetch from swap status endpoint
+    // Backend currently has bitcoin plugin swap status — we store them when swap is initiated
+    // For now we pull from localStorage history (populated on swap execution)
+    const stored = typeof window !== "undefined"
+      ? JSON.parse(localStorage.getItem("bitizen_swap_history") || "[]")
+      : [];
+    setRecentSwaps(stored.slice(0, 5));
+  }, [address]);
+
+  // Mock recent swaps — empty; real swaps are added on execution
 
   const handleFlipTokens = () => {
     setFromToken(toToken);
@@ -150,6 +176,21 @@ const Swap: NextPage = () => {
       if (result.success && result.data) {
         const swap = result.data;
         setSwapId(swap.swapId);
+
+        // Persist to swap history in localStorage
+        const historyEntry = {
+          id: swap.swapId,
+          from: fromToken,
+          to: toToken,
+          amount: `${fromAmount} ${fromToken}`,
+          received: `${toAmount} ${toToken}`,
+          status: swap.status || "pending",
+          time: new Date().toISOString(),
+        };
+        const prev = JSON.parse(localStorage.getItem("bitizen_swap_history") || "[]");
+        localStorage.setItem("bitizen_swap_history", JSON.stringify([historyEntry, ...prev].slice(0, 20)));
+        setRecentSwaps([historyEntry, ...recentSwaps].slice(0, 5));
+
         alert(
           `Swap initiated! Swap ID: ${swap.swapId}\nStatus: ${swap.status}\nEstimated completion: ${new Date(swap.estimatedCompletion).toLocaleString()}`,
         );
@@ -192,6 +233,12 @@ const Swap: NextPage = () => {
           <p className="text-[var(--text-secondary)]">
             Atomic swaps between Bitcoin and Starknet via Garden Finance
           </p>
+          {isMockData && (
+            <div className="mt-3 flex items-center gap-2 text-sm text-yellow-500 bg-yellow-500/10 border border-yellow-500/30 rounded-lg px-4 py-2 w-fit">
+              <InformationCircleIcon className="w-4 h-4 flex-shrink-0" />
+              <span>Simulated data — Garden Finance API key not configured. BTC balances and exchange rates are estimates.</span>
+            </div>
+          )}
         </div>
 
         <div className="grid lg:grid-cols-3 gap-6">
@@ -398,7 +445,10 @@ const Swap: NextPage = () => {
                     <p className="font-mono text-sm break-all">{btcAddress}</p>
                   </div>
                   <button
-                    onClick={() => setBtcAddress(null)}
+                    onClick={() => {
+                      setBtcAddress(null);
+                      localStorage.removeItem("bitizen_btc_address");
+                    }}
                     className="text-sm text-[var(--error)] hover:underline"
                   >
                     Unlink Address
@@ -457,17 +507,23 @@ const Swap: NextPage = () => {
               </div>
             </div>
 
-            {/* Total Volume */}
+            {/* Total Volume — computed from real local swap history */}
             <div className="card border-2 border-[var(--accent-orange)]/30">
               <h3 className="text-sm text-[var(--text-secondary)] mb-2">
-                TOTAL SWAP VOLUME
+                YOUR SWAP VOLUME
               </h3>
-              <div className="text-2xl font-bold text-[var(--accent-orange)] mb-1">
-                0.0125 BTC
-              </div>
-              <div className="text-sm text-[var(--text-secondary)]">
-                ≈ 565.38 STRK
-              </div>
+              {recentSwaps.length === 0 ? (
+                <div className="text-sm text-[var(--text-muted)]">No swaps yet</div>
+              ) : (
+                <>
+                  <div className="text-2xl font-bold text-[var(--accent-orange)] mb-1">
+                    {recentSwaps.length} swap{recentSwaps.length !== 1 ? "s" : ""}
+                  </div>
+                  <div className="text-sm text-[var(--text-secondary)]">
+                    Most recent: {new Date(recentSwaps[0]?.time ?? Date.now()).toLocaleDateString()}
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -527,7 +583,9 @@ const Swap: NextPage = () => {
                 className="w-full px-4 py-3 bg-[var(--bg-dark)] border border-[var(--border-color)] rounded-xl focus:outline-none focus:border-[var(--accent-purple)] transition-colors text-[var(--text-primary)] mb-6"
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && e.currentTarget.value) {
-                    setBtcAddress(e.currentTarget.value);
+                    const addr = e.currentTarget.value;
+                    setBtcAddress(addr);
+                    localStorage.setItem("bitizen_btc_address", addr);
                     setShowLinkModal(false);
                   }
                 }}
@@ -544,7 +602,9 @@ const Swap: NextPage = () => {
                     const input = e.currentTarget.parentElement
                       ?.previousElementSibling as HTMLInputElement;
                     if (input?.value) {
-                      setBtcAddress(input.value);
+                      const addr = input.value;
+                      setBtcAddress(addr);
+                      localStorage.setItem("bitizen_btc_address", addr);
                       setShowLinkModal(false);
                     }
                   }}
