@@ -8,7 +8,7 @@ interface Service {
   description: string;
   endpoint: string;
   total_stake: number;
-  tx_hash: string;
+  tx_hash: string | null;
   is_active: boolean;
   created_at?: Date;
 }
@@ -19,7 +19,7 @@ interface Review {
   reviewer_address: string;
   rating: number;
   review_hash: string;
-  tx_hash: string;
+  tx_hash: string | null;
   created_at?: Date;
 }
 

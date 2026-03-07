@@ -1,9 +1,9 @@
 import { Request, Response } from 'express';
 import { asyncHandler, AppError } from '../middleware/errorHandler';
-import { StarknetService } from '../services/starknet';
+import { starknetService } from '../services/starknet';
 import { AuditorService } from '../services/auditor';
+import { logger } from '../utils/logger';
 
-const starknetService = new StarknetService();
 const auditorService = new AuditorService();
 
 export class AuditorController {
@@ -19,10 +19,14 @@ export class AuditorController {
       throw new AppError('Authentication required', 401);
     }
 
-    // Stake on-chain
-    const txHash = await starknetService.stakeAsAuditor(service_id, amount);
+    let txHash: string | null = null;
+    try {
+      txHash = await starknetService.stakeAsAuditor(service_id, amount);
+    } catch (onchainError: any) {
+      logger.warn(`On-chain staking failed: ${onchainError.message}`);
+    }
 
-    // Save stake to database
+    // Save stake to database (with or without tx_hash)
     const stake = await auditorService.createStake({
       service_id,
       auditor_address,
@@ -33,7 +37,7 @@ export class AuditorController {
 
     res.status(201).json({
       success: true,
-      message: 'Staked successfully',
+      message: txHash ? 'Staked successfully' : 'Stake recorded in database. On-chain staking pending STRK tokens.',
       data: {
         stake,
         tx_hash: txHash
@@ -53,15 +57,19 @@ export class AuditorController {
       throw new AppError('Authentication required', 401);
     }
 
-    // Unstake on-chain
-    const txHash = await starknetService.unstake(service_id);
+    let txHash: string | null = null;
+    try {
+      txHash = await starknetService.unstake(service_id);
+    } catch (onchainError: any) {
+      logger.warn(`On-chain unstake failed: ${onchainError.message}`);
+    }
 
-    // Update database
+    // Update database regardless of on-chain result
     await auditorService.unstake(service_id, auditor_address);
 
     res.status(200).json({
       success: true,
-      message: 'Unstaked successfully',
+      message: txHash ? 'Unstaked successfully' : 'Unstake recorded. On-chain confirmation pending.',
       data: {
         tx_hash: txHash
       }

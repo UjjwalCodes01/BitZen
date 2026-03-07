@@ -7,7 +7,7 @@ import express, { Request, Response } from 'express';
 import { ec, stark } from 'starknet';
 import crypto from 'crypto';
 import { logger } from '../../utils/logger';
-import { StarknetService } from '../../services/starknet';
+import { starknetService } from '../../services/starknet';
 import {
   createSession,
   getSession,
@@ -18,7 +18,6 @@ import {
 } from '../../database/sessions';
 
 const router = express.Router();
-const starknetService = new StarknetService();
 
 /**
  * POST /api/v1/plugins/account/session

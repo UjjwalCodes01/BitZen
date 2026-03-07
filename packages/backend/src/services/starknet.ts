@@ -342,3 +342,6 @@ export class StarknetService {
     }
   }
 }
+
+// Shared singleton — all modules import this instead of calling new StarknetService()
+export const starknetService = new StarknetService();
