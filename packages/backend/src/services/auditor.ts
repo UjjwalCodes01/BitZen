@@ -6,7 +6,7 @@ interface AuditorStake {
   service_id: string;
   auditor_address: string;
   amount: number;
-  tx_hash: string;
+  tx_hash: string | null;
   is_active: boolean;
   staked_at?: Date;
   unstaked_at?: Date;

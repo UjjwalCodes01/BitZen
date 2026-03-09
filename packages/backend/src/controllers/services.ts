@@ -1,11 +1,10 @@
 import { Request, Response } from 'express';
 import { validationResult } from 'express-validator';
 import { asyncHandler, AppError } from '../middleware/errorHandler';
-import { StarknetService } from '../services/starknet';
+import { starknetService } from '../services/starknet';
 import { ServiceService } from '../services/service';
 import { logger } from '../utils/logger';
 
-const starknetService = new StarknetService();
 const serviceService = new ServiceService();
 
 export class ServiceController {
@@ -28,15 +27,14 @@ export class ServiceController {
 
     logger.info(`Registering service: ${name} by ${provider_address}`);
 
-    // Register service on-chain
-    const txHash = await starknetService.registerService(
-      name,
-      description,
-      endpoint,
-      stake_amount
-    );
+    let txHash: string | null = null;
+    try {
+      txHash = await starknetService.registerService(name, description, endpoint, stake_amount);
+    } catch (onchainError: any) {
+      logger.warn(`On-chain service registration failed: ${onchainError.message}`);
+    }
 
-    // Save service to database
+    // Save service to database (with or without tx_hash)
     const service = await serviceService.createService({
       provider_address,
       name,
@@ -49,7 +47,7 @@ export class ServiceController {
 
     res.status(201).json({
       success: true,
-      message: 'Service registered successfully',
+      message: txHash ? 'Service registered successfully' : 'Service registered in database. On-chain registration pending STRK tokens.',
       data: {
         service,
         tx_hash: txHash
@@ -125,10 +123,14 @@ export class ServiceController {
 
     logger.info(`Submitting review for service ${id} by ${reviewer_address}`);
 
-    // Submit review on-chain
-    const txHash = await starknetService.submitReview(id, rating, review_hash);
+    let txHash: string | null = null;
+    try {
+      txHash = await starknetService.submitReview(id, rating, review_hash);
+    } catch (onchainError: any) {
+      logger.warn(`On-chain review submission failed: ${onchainError.message}`);
+    }
 
-    // Save review to database
+    // Save review to database (with or without tx_hash)
     const review = await serviceService.createReview({
       service_id: id,
       reviewer_address,
