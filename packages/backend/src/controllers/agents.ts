@@ -25,7 +25,7 @@ export class AgentController {
     }
 
     // Support both frontend format (publicKey, zkProof) and backend format (proof_data, public_inputs)
-    const { address, publicKey, zkProof, proof_data, public_inputs } = req.body;
+    const { address, name, description, capabilities, publicKey, zkProof, proof_data, public_inputs } = req.body;
 
     logger.info(`Registering agent: ${address}`);
 
@@ -54,6 +54,9 @@ export class AgentController {
     try {
       agent = await agentService.createAgent({
         address,
+        name: name || undefined,
+        description: description || undefined,
+        capabilities: capabilities || [],
         tx_hash: txHash || 'pending',
         registered_at: new Date(),
         is_verified: false

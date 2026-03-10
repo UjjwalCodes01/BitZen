@@ -162,7 +162,7 @@ export default function AgentDetailPage() {
                   {session.expiresAt && (
                     <span className="text-xs text-zinc-500 flex items-center gap-1">
                       <Clock className="w-3 h-3" />
-                      Expires {timeAgo(new Date(session.expiresAt * 1000).toISOString())}
+                      Expires {timeAgo(new Date(session.expiresAt).toISOString())}
                     </span>
                   )}
                 </div>

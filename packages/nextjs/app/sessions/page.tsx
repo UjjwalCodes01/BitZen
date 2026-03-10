@@ -104,8 +104,8 @@ export default function SessionsPage() {
 
   const isExpired = (expiresAt?: number) => {
     if (!expiresAt) return false;
-    // expiresAt is epoch seconds from backend
-    return expiresAt * 1000 < Date.now();
+    // expiresAt is epoch milliseconds from backend
+    return expiresAt < Date.now();
   };
 
   return (
@@ -232,8 +232,8 @@ export default function SessionsPage() {
                               <Clock className="w-3 h-3" />
                               <span>
                                 {expired
-                                  ? `Expired ${timeAgo(new Date(session.expiresAt * 1000).toISOString())}`
-                                  : `Expires ${timeAgo(new Date(session.expiresAt * 1000).toISOString())}`}
+                                  ? `Expired ${timeAgo(new Date(session.expiresAt).toISOString())}`
+                                  : `Expires ${timeAgo(new Date(session.expiresAt).toISOString())}`}
                               </span>
                             </div>
                           )}

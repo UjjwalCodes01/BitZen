@@ -33,12 +33,23 @@ const createTables = async (): Promise<void> => {
     `CREATE TABLE IF NOT EXISTS agents (
       id SERIAL PRIMARY KEY,
       address VARCHAR(66) UNIQUE NOT NULL,
+      name VARCHAR(100),
+      description TEXT,
+      capabilities JSONB DEFAULT '[]',
       tx_hash VARCHAR(66),
       registered_at TIMESTAMP NOT NULL,
       is_verified BOOLEAN DEFAULT false,
       revoked_at TIMESTAMP,
       created_at TIMESTAMP DEFAULT NOW()
     )`,
+
+    // Add columns if they don't exist (for existing tables)
+    `DO $$ BEGIN
+      ALTER TABLE agents ADD COLUMN IF NOT EXISTS name VARCHAR(100);
+      ALTER TABLE agents ADD COLUMN IF NOT EXISTS description TEXT;
+      ALTER TABLE agents ADD COLUMN IF NOT EXISTS capabilities JSONB DEFAULT '[]';
+    EXCEPTION WHEN OTHERS THEN NULL;
+    END $$`,
 
     // Services table
     `CREATE TABLE IF NOT EXISTS services (

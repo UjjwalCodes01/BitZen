@@ -4,6 +4,9 @@ import { logger } from '../utils/logger';
 interface Agent {
   id?: number;
   address: string;
+  name?: string;
+  description?: string;
+  capabilities?: string[];
   tx_hash: string | null;
   registered_at: Date;
   is_verified: boolean;
@@ -26,13 +29,16 @@ export class AgentService {
    */
   async createAgent(data: Agent): Promise<Agent> {
     const query = `
-      INSERT INTO agents (address, tx_hash, registered_at, is_verified)
-      VALUES ($1, $2, $3, $4)
+      INSERT INTO agents (address, name, description, capabilities, tx_hash, registered_at, is_verified)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
       RETURNING *
     `;
 
     const values = [
       data.address,
+      data.name || null,
+      data.description || null,
+      JSON.stringify(data.capabilities || []),
       data.tx_hash,
       data.registered_at,
       data.is_verified

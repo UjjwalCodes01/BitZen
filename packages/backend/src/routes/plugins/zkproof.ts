@@ -241,6 +241,8 @@ router.get('/status/:proofId', async (req: Request, res: Response) => {
         status:       record.status,
         agentAddress: record.agentAddress,
         commitment:   record.commitment,
+        proof:        record.proof,
+        publicSignals: record.publicSignals,
         createdAt:    record.createdAt,
         expiresAt:    record.expiresAt,
         isExpired:    Date.now() / 1000 > record.expiresAt,
