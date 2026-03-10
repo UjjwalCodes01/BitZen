@@ -89,6 +89,7 @@ export function formatCrypto(amount: string | number, symbol = ""): string {
  * Generate a random color from a string (for avatars)
  */
 export function stringToColor(str: string): string {
+  if (!str) return 'hsl(0, 0%, 50%)';
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
     hash = str.charCodeAt(i) + ((hash << 5) - hash);

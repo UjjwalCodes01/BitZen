@@ -4,6 +4,7 @@
  */
 
 import express, { Request, Response } from 'express';
+import { authenticate } from '../../middleware/auth';
 import { logger } from '../../utils/logger';
 
 const router = express.Router();
@@ -12,8 +13,17 @@ const GARDEN_API_URL = process.env.GARDEN_API_URL || 'https://api.garden.finance
 const GARDEN_API_KEY = process.env.GARDEN_API_KEY;
 
 if (!GARDEN_API_KEY) {
-  logger.warn('GARDEN_API_KEY not set - Bitcoin swaps will be mocked');
+  logger.warn('GARDEN_API_KEY not set - Bitcoin swap execution will be disabled');
 }
+
+// ── In-memory price cache (60s TTL) to survive CoinGecko rate limits ──
+interface PriceCache {
+  btcUsd: number;
+  strkUsd: number;
+  fetchedAt: number;
+}
+let priceCache: PriceCache | null = null;
+const CACHE_TTL_MS = 60_000; // 60 seconds
 
 /**
  * Helper function to call Garden Finance API
@@ -48,7 +58,7 @@ async function callGardenAPI(endpoint: string, method: string = 'GET', data?: an
 
     return await response.json();
   } catch (error: any) {
-    logger.error('Garden API call failed:', error);
+    logger.debug(`Garden API call failed (${endpoint}): ${error.message}`);
     throw error;
   }
 }
@@ -107,31 +117,63 @@ router.post('/quote', async (req: Request, res: Response) => {
           },
         });
       } catch (error: any) {
-        logger.error('Garden API quote failed, using fallback:', error);
-        // Fall through to mock data if API fails
+        logger.debug('Garden API quote unavailable, falling back to CoinGecko rates');
+        // Fall through to CoinGecko data if API fails
       }
     }
 
-    // Use CoinGecko free API for a real-time rate-based quote
+    // Use CoinGecko free API for a real-time rate-based quote (with cache + retry)
     let liveRate: number;
     try {
-      const cgRes = await fetch(
-        'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,starknet&vs_currencies=usd&precision=2',
-        { signal: AbortSignal.timeout(8000) },
-      );
-      if (cgRes.ok) {
-        const prices = await cgRes.json() as Record<string, { usd?: number }>;
-        const BTC_USD  = prices.bitcoin?.usd  ?? 0;
-        const STRK_USD = prices.starknet?.usd ?? 0;
-        if (BTC_USD === 0 || STRK_USD === 0) {
-          throw new Error('Incomplete price data from CoinGecko');
-        }
-        liveRate = fromCurrency === 'BTC'
-          ? Math.round(BTC_USD / STRK_USD)
-          : STRK_USD / BTC_USD;
+      let BTC_USD = 0;
+      let STRK_USD = 0;
+
+      // Check cache first
+      if (priceCache && (Date.now() - priceCache.fetchedAt) < CACHE_TTL_MS) {
+        BTC_USD = priceCache.btcUsd;
+        STRK_USD = priceCache.strkUsd;
+        logger.debug('Using cached CoinGecko prices');
       } else {
-        throw new Error(`CoinGecko returned ${cgRes.status}`);
+        // Fetch with retry (2 attempts, 2s delay)
+        for (let attempt = 0; attempt < 2; attempt++) {
+          try {
+            const cgRes = await fetch(
+              'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,starknet&vs_currencies=usd&precision=2',
+              { signal: AbortSignal.timeout(8000) },
+            );
+            if (cgRes.ok) {
+              const prices = await cgRes.json() as Record<string, { usd?: number }>;
+              BTC_USD  = prices.bitcoin?.usd  ?? 0;
+              STRK_USD = prices.starknet?.usd ?? 0;
+              if (BTC_USD > 0 && STRK_USD > 0) {
+                priceCache = { btcUsd: BTC_USD, strkUsd: STRK_USD, fetchedAt: Date.now() };
+                break;
+              }
+            }
+            throw new Error(`CoinGecko returned ${cgRes.status}`);
+          } catch (retryErr: any) {
+            if (attempt === 0) {
+              logger.debug(`CoinGecko attempt 1 failed (${retryErr.message}), retrying in 2s...`);
+              await new Promise(r => setTimeout(r, 2000));
+            }
+          }
+        }
+
+        // If fresh fetch failed, fall back to stale cache
+        if ((BTC_USD === 0 || STRK_USD === 0) && priceCache) {
+          BTC_USD = priceCache.btcUsd;
+          STRK_USD = priceCache.strkUsd;
+          logger.warn('Using stale cached prices (CoinGecko unavailable)');
+        }
+
+        if (BTC_USD === 0 || STRK_USD === 0) {
+          throw new Error('No price data available');
+        }
       }
+
+      liveRate = fromCurrency === 'BTC'
+        ? Math.round(BTC_USD / STRK_USD)
+        : STRK_USD / BTC_USD;
     } catch (cgError: any) {
       logger.error('CoinGecko rate fetch failed:', cgError.message);
       return res.status(503).json({
@@ -176,7 +218,7 @@ router.post('/quote', async (req: Request, res: Response) => {
  * POST /api/v1/plugins/bitcoin/swap
  * Execute atomic swap between BTC and STRK
  */
-router.post('/swap', async (req: Request, res: Response) => {
+router.post('/swap', authenticate, async (req: Request, res: Response) => {
   try {
     const { fromCurrency, toCurrency, amount, destinationAddress, quoteId } = req.body;
 
@@ -187,74 +229,44 @@ router.post('/swap', async (req: Request, res: Response) => {
       });
     }
 
-    // Call Garden Finance API for real swap
-    if (GARDEN_API_KEY) {
-      try {
-        const swap: any = await callGardenAPI('/v1/swap', 'POST', {
-          from: fromCurrency,
-          to: toCurrency,
-          amount: parseFloat(amount),
-          destinationAddress,
-          quoteId,
-        });
-
-        return res.json({
-          success: true,
-          data: {
-            swapId: swap.id,
-            status: swap.status || 'pending',
-            from: fromCurrency,
-            to: toCurrency,
-            amount,
-            destinationAddress,
-            txHash: swap.txHash,
-            estimatedCompletion: Date.now() + (swap.estimatedTime || 600000),
-            createdAt: Date.now(),
-          },
-        });
-      } catch (error: any) {
-        logger.error('Garden API swap failed, using fallback:', error);
-        // Fall through to mock if API fails
-      }
+    // Garden Finance API key is required for real swaps
+    if (!GARDEN_API_KEY) {
+      return res.status(503).json({
+        success: false,
+        error: 'Bitcoin swap service unavailable. Garden Finance API key not configured.',
+      });
     }
 
-    // Fetch live rate from CoinGecko for accounting
-    let settledRate = 0;
     try {
-      const cgRes = await fetch(
-        'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,starknet&vs_currencies=usd&precision=2',
-        { signal: AbortSignal.timeout(6000) },
-      );
-      if (cgRes.ok) {
-        const prices = await cgRes.json() as Record<string, { usd?: number }>;
-        const BTC_USD  = prices.bitcoin?.usd  ?? 0;
-        const STRK_USD = prices.starknet?.usd ?? 0;
-        settledRate = fromCurrency === 'BTC'
-          ? (STRK_USD > 0 ? Math.round(BTC_USD / STRK_USD) : 0)
-          : (STRK_USD > 0 ? STRK_USD / BTC_USD : 0);
-      }
-    } catch { /* ignore */ }
-
-    const swapId = `swap_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    logger.warn(`Garden API key not set — swap ${swapId} is a pending intent. Configure GARDEN_API_KEY for real settlement.`);
-
-    return res.json({
-      success: true,
-      data: {
-        swapId,
-        status: 'pending_settlement',
+      const swap: any = await callGardenAPI('/v1/swap', 'POST', {
         from: fromCurrency,
         to: toCurrency,
-        amount,
+        amount: parseFloat(amount),
         destinationAddress,
-        txHash: null,
-        rate: settledRate,
-        estimatedCompletion: Date.now() + 600000,
-        createdAt: Date.now(),
-        isMock: true,
-        note: 'Swap intent recorded with live rates. Real cross-chain settlement requires GARDEN_API_KEY.',
-      },
-    });
+        quoteId,
+      });
+
+      return res.json({
+        success: true,
+        data: {
+          swapId: swap.id,
+          status: swap.status || 'pending',
+          from: fromCurrency,
+          to: toCurrency,
+          amount,
+          destinationAddress,
+          txHash: swap.txHash,
+          estimatedCompletion: Date.now() + (swap.estimatedTime || 600000),
+          createdAt: Date.now(),
+        },
+      });
+    } catch (gardenErr: any) {
+      logger.warn(`Garden API swap failed: ${gardenErr.message}`);
+      return res.status(503).json({
+        success: false,
+        error: 'Swap execution service temporarily unavailable. Garden Finance API is unreachable. Please try again later.',
+      });
+    }
   } catch (error: any) {
     logger.error('Execute swap error:', error);
     return res.status(500).json({
@@ -279,41 +291,25 @@ router.get('/swap/:swapId/status', async (req: Request, res: Response) => {
       });
     }
 
-    // Call Garden Finance API for real status
-    if (GARDEN_API_KEY && !swapId.startsWith('mock_')) {
-      try {
-        const status: any = await callGardenAPI(`/v1/swap/${swapId}`);
-
-        return res.json({
-          success: true,
-          data: {
-            swapId,
-            status: status.status,
-            txHash: status.txHash,
-            confirmations: status.confirmations || 0,
-            completedAt: status.completedAt,
-            updatedAt: Date.now(),
-          },
-        });
-      } catch (error: any) {
-        logger.error('Garden API status check failed:', error);
-        // Fall through to mock
-      }
+    // Garden Finance API key is required for swap status tracking
+    if (!GARDEN_API_KEY) {
+      return res.status(503).json({
+        success: false,
+        error: 'Swap status tracking unavailable. Garden Finance API key not configured.',
+      });
     }
 
-    // Garden API not configured — cannot track real swap status
-    logger.info(`Swap status check for ${swapId} — Garden API key not configured`);
+    const status: any = await callGardenAPI(`/v1/swap/${swapId}`);
+
     return res.json({
       success: true,
       data: {
         swapId,
-        status: 'pending_settlement',
-        txHash: null,
-        confirmations: 0,
-        completedAt: null,
+        status: status.status,
+        txHash: status.txHash,
+        confirmations: status.confirmations || 0,
+        completedAt: status.completedAt,
         updatedAt: Date.now(),
-        isMock: true,
-        note: 'Configure GARDEN_API_KEY to enable real swap status tracking.',
       },
     });
   } catch (error: any) {
@@ -446,23 +442,51 @@ router.get('/rates', async (_req: Request, res: Response) => {
           },
         });
       } catch (error: any) {
-        logger.error('Garden API rates failed:', error);
-        // Fall through to mock
+        logger.debug('Garden API rates unavailable, falling back to CoinGecko');
+        // Fall through to CoinGecko
       }
     }
 
-    // Use CoinGecko free API for real-time rates
+    // Use CoinGecko free API for real-time rates (with cache + retry)
     try {
-      const cgRes = await fetch(
-        'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,starknet&vs_currencies=usd&precision=2',
-        { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(8000) },
-      );
-      if (cgRes.ok) {
-        const prices = await cgRes.json() as Record<string, { usd?: number }>;
-        const BTC_USD  = prices.bitcoin?.usd  ?? 0;
-        const STRK_USD = prices.starknet?.usd ?? 0;
-        const BTC_STRK = STRK_USD > 0 ? Math.round(BTC_USD / STRK_USD) : 0;
+      let BTC_USD = 0;
+      let STRK_USD = 0;
 
+      // Check cache first
+      if (priceCache && (Date.now() - priceCache.fetchedAt) < CACHE_TTL_MS) {
+        BTC_USD = priceCache.btcUsd;
+        STRK_USD = priceCache.strkUsd;
+      } else {
+        for (let attempt = 0; attempt < 2; attempt++) {
+          try {
+            const cgRes = await fetch(
+              'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,starknet&vs_currencies=usd&precision=2',
+              { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(8000) },
+            );
+            if (cgRes.ok) {
+              const prices = await cgRes.json() as Record<string, { usd?: number }>;
+              BTC_USD  = prices.bitcoin?.usd  ?? 0;
+              STRK_USD = prices.starknet?.usd ?? 0;
+              if (BTC_USD > 0 && STRK_USD > 0) {
+                priceCache = { btcUsd: BTC_USD, strkUsd: STRK_USD, fetchedAt: Date.now() };
+                break;
+              }
+            }
+            throw new Error(`CoinGecko returned non-ok`);
+          } catch (retryErr: any) {
+            if (attempt === 0) await new Promise(r => setTimeout(r, 2000));
+          }
+        }
+
+        // Fall back to stale cache
+        if ((BTC_USD === 0 || STRK_USD === 0) && priceCache) {
+          BTC_USD = priceCache.btcUsd;
+          STRK_USD = priceCache.strkUsd;
+        }
+      }
+
+      if (BTC_USD > 0 && STRK_USD > 0) {
+        const BTC_STRK = Math.round(BTC_USD / STRK_USD);
         return res.json({
           success: true,
           data: {

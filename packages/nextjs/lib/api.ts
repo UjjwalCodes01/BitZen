@@ -107,7 +107,9 @@ async function request<T>(
     return {} as T;
   }
 
-  return response.json();
+  // Backend wraps all responses in { success: true, data: ... } — unwrap the envelope
+  const json = await response.json();
+  return (json.data !== undefined ? json.data : json) as T;
 }
 
 // ============================================
@@ -116,17 +118,17 @@ async function request<T>(
 
 export const auth = {
   signMessage: (address: string) =>
-    request<{ message: string; address: string }>("/auth/sign-message", {
+    request<{ typedData: Record<string, unknown>; address: string }>("/auth/sign-message", {
       method: "POST",
       body: JSON.stringify({ address }),
     }),
 
-  verify: (address: string, message: string, signature: string[]) =>
+  verify: (address: string, signature: string[]) =>
     request<{ token: string; refreshToken: string; expiresIn: string }>(
       "/auth/verify",
       {
         method: "POST",
-        body: JSON.stringify({ address, message, signature }),
+        body: JSON.stringify({ address, signature }),
       }
     ),
 
@@ -177,7 +179,11 @@ export const agents = {
       body: JSON.stringify(data),
     }),
 
-  list: () => request<Agent[]>("/agents"),
+  list: async (): Promise<Agent[]> => {
+    const result = await request<{ agents: Agent[]; total: number } | Agent[]>("/agents");
+    if (Array.isArray(result)) return result;
+    return (result as { agents: Agent[] }).agents || [];
+  },
 
   get: (address: string) => request<Agent>(`/agents/${address}`),
 
@@ -232,8 +238,9 @@ export const services = {
   register: (data: {
     name: string;
     description: string;
-    category: string;
-    price: string;
+    endpoint: string;
+    stake_amount: string;
+    category?: string;
   }) =>
     request<{ service: Service; tx_hash?: string | null }>(
       "/services/register",
@@ -243,7 +250,11 @@ export const services = {
       }
     ),
 
-  list: () => request<Service[]>("/services"),
+  list: async (): Promise<Service[]> => {
+    const result = await request<{ services: Service[]; total: number } | Service[]>("/services");
+    if (Array.isArray(result)) return result;
+    return (result as { services: Service[] }).services || [];
+  },
 
   get: (id: string) => request<Service>(`/services/${id}`),
 
@@ -280,13 +291,13 @@ export interface Stake {
 }
 
 export const auditors = {
-  stake: (data: { serviceId: string; amount: string }) =>
+  stake: (data: { service_id: string; amount: string }) =>
     request<{ stake: Stake; tx_hash?: string | null }>("/auditors/stake", {
       method: "POST",
       body: JSON.stringify(data),
     }),
 
-  unstake: (data: { serviceId: string }) =>
+  unstake: (data: { service_id: string }) =>
     request<{ message: string; tx_hash?: string | null }>("/auditors/unstake", {
       method: "POST",
       body: JSON.stringify(data),
@@ -329,8 +340,8 @@ export interface ExchangeRates {
 
 export const bitcoin = {
   getQuote: (data: {
-    fromToken: string;
-    toToken: string;
+    fromCurrency: string;
+    toCurrency: string;
     amount: string;
   }) =>
     request<SwapQuote>("/plugins/bitcoin/quote", {
@@ -339,10 +350,11 @@ export const bitcoin = {
     }),
 
   executeSwap: (data: {
-    fromToken: string;
-    toToken: string;
+    fromCurrency: string;
+    toCurrency: string;
     amount: string;
-    recipientAddress: string;
+    destinationAddress: string;
+    quoteId?: string;
   }) =>
     request<{ swapId: string; status: string }>("/plugins/bitcoin/swap", {
       method: "POST",
@@ -365,30 +377,37 @@ export const bitcoin = {
 // ============================================
 
 export interface SessionKey {
-  id: string;
-  agent_address: string;
-  session_key: string;
-  expires_at: string;
-  allowed_methods?: string[];
-  spending_limit?: string;
+  sessionId: string;
+  agentAddress: string;
+  publicKey: string;
+  expiresAt: number;
+  isExpired?: boolean;
+  permissions?: string[];
+  spendingLimit?: { daily: string; perTransaction: string; currency: string };
+  usage?: { totalSpent: string; transactionCount: number; lastUsed: number | null };
   status?: string;
-  created_at?: string;
+  createdAt?: number;
 }
 
 export const account = {
   createSession: (data: {
     agentAddress: string;
-    duration?: number;
-    allowedMethods?: string[];
-    spendingLimit?: string;
+    expirationBlocks?: number;
+    permissions?: string[];
+    metadata?: { dailyLimit?: string; transactionLimit?: string };
   }) =>
     request<SessionKey>("/plugins/account/session", {
       method: "POST",
       body: JSON.stringify(data),
     }),
 
-  getSessions: (agentAddress: string) =>
-    request<SessionKey[]>(`/plugins/account/sessions/${agentAddress}`),
+  getSessions: async (agentAddress: string): Promise<SessionKey[]> => {
+    const result = await request<{ agentAddress: string; sessions: SessionKey[]; count: number } | SessionKey[]>(
+      `/plugins/account/sessions/${agentAddress}`
+    );
+    if (Array.isArray(result)) return result;
+    return (result as { sessions: SessionKey[] }).sessions || [];
+  },
 
   getSession: (id: string) =>
     request<SessionKey>(`/plugins/account/session/${id}`),
@@ -398,19 +417,23 @@ export const account = {
       method: "POST",
     }),
 
-  updateSpendingLimit: (id: string, limit: string) =>
+  updateSpendingLimit: (id: string, dailyLimit?: string, transactionLimit?: string) =>
     request<SessionKey>(`/plugins/account/sessions/${id}/limit`, {
       method: "PATCH",
-      body: JSON.stringify({ spendingLimit: limit }),
+      body: JSON.stringify({ dailyLimit, transactionLimit }),
     }),
 
   execute: (data: {
     sessionId: string;
-    contractAddress: string;
-    entrypoint: string;
-    calldata: string[];
+    taskType: string;
+    parameters: {
+      contractAddress: string;
+      entrypoint: string;
+      calldata?: string[];
+      amount?: string;
+    };
   }) =>
-    request<{ tx_hash: string }>("/plugins/account/execute", {
+    request<{ taskId: string; txHash: string; status: string }>("/plugins/account/execute", {
       method: "POST",
       body: JSON.stringify(data),
     }),
@@ -421,28 +444,30 @@ export const account = {
 // ============================================
 
 export interface ZKProof {
-  id: string;
-  agent_address: string;
-  proof_type: string;
+  proofId: string;
+  agentAddress: string;
   status: string;
-  proof_data?: unknown;
-  created_at?: string;
-  verified_at?: string;
+  commitment?: string;
+  proof?: unknown;
+  publicSignals?: string[];
+  calldata?: string[];
+  createdAt?: number;
+  expiresAt?: number;
+  isExpired?: boolean;
 }
 
 export const zkproof = {
   generate: (data: {
     agentAddress: string;
-    proofType: string;
-    inputData: Record<string, unknown>;
+    secret?: string;
   }) =>
     request<ZKProof>("/plugins/zkproof/generate", {
       method: "POST",
       body: JSON.stringify(data),
     }),
 
-  verify: (data: { proofId: string }) =>
-    request<{ verified: boolean; proof: ZKProof }>("/plugins/zkproof/verify", {
+  verify: (data: { proof: unknown; publicSignals: string[] }) =>
+    request<{ isValid: boolean; verificationId: string; verifiedAt: number }>("/plugins/zkproof/verify", {
       method: "POST",
       body: JSON.stringify(data),
     }),
@@ -450,8 +475,13 @@ export const zkproof = {
   getStatus: (proofId: string) =>
     request<ZKProof>(`/plugins/zkproof/status/${proofId}`),
 
-  getAgentProofs: (agentAddress: string) =>
-    request<ZKProof[]>(`/plugins/zkproof/agent/${agentAddress}`),
+  getAgentProofs: async (agentAddress: string): Promise<ZKProof[]> => {
+    const result = await request<{ agentAddress: string; proofs: ZKProof[]; count: number } | ZKProof[]>(
+      `/plugins/zkproof/agent/${agentAddress}`
+    );
+    if (Array.isArray(result)) return result;
+    return (result as { proofs: ZKProof[] }).proofs || [];
+  },
 };
 
 // ============================================

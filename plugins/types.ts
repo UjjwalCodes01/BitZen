@@ -36,6 +36,7 @@ export interface ActionResult {
 export interface AgentContext {
   agentAddress: string;
   sessionKey?: string;
+  authToken?: string;
   network: 'mainnet' | 'sepolia' | 'devnet';
   rpcUrl: string;
   backendUrl: string;

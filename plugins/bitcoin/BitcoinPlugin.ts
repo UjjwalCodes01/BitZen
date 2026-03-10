@@ -145,12 +145,10 @@ export class BitcoinPlugin implements Plugin {
     if (!this.initialized) return false;
 
     try {
-      // Ping Garden API
-      const response = await fetch(`${this.config.gardenApiUrl}/health`, {
+      // Check backend connectivity (our bitcoin routes are served from there)
+      const response = await fetch(`${this.context.backendUrl}/health`, {
         method: 'GET',
-        headers: {
-          'Content-Type': 'application/json'
-        }
+        headers: { 'Content-Type': 'application/json' }
       });
 
       return response.ok;
@@ -161,41 +159,40 @@ export class BitcoinPlugin implements Plugin {
   }
 
   /**
-   * Get swap quote from Garden SDK
+   * Get swap quote — routes through our backend which handles Garden/CoinGecko fallback
    */
   private async getSwapQuote(params: any): Promise<ActionResult> {
     const { fromCurrency, toCurrency, amount } = params;
 
     try {
-      // Garden SDK API call for quote
-      const response = await fetch(`${this.config.gardenApiUrl}/v1/quote`, {
+      const response = await fetch(`${this.context.backendUrl}/api/v1/plugins/bitcoin/quote`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(this.config.gardenApiKey && { 'X-API-Key': this.config.gardenApiKey })
+          ...(this.context.authToken ? { 'Authorization': `Bearer ${this.context.authToken}` } : {}),
         },
         body: JSON.stringify({
-          from: fromCurrency.toLowerCase(),
-          to: toCurrency.toLowerCase(),
+          fromCurrency: fromCurrency.toUpperCase(),
+          toCurrency: toCurrency.toUpperCase(),
           amount: amount,
-          network: this.config.network
         })
       });
 
-      if (!response.ok) {
-        const error = await response.json() as any;
-        throw new Error(error.message || 'Failed to get swap quote');
+      const body = await response.json() as any;
+
+      if (!response.ok || !body.success) {
+        throw new Error(body.error || 'Failed to get swap quote');
       }
 
-      const quote = await response.json() as any;
+      const quote = body.data;
 
       const swapQuote: SwapQuote = {
         inputAmount: amount,
-        outputAmount: quote.outputAmount,
-        exchangeRate: quote.rate,
-        fee: quote.fee,
+        outputAmount: String(quote.total || 0),
+        exchangeRate: quote.rate || 0,
+        fee: String(quote.fee || 0),
         slippage: this.config.slippageTolerance,
-        estimatedTime: quote.estimatedTime || 600, // 10 min default
+        estimatedTime: quote.estimatedTime || 600,
         route: [fromCurrency, toCurrency]
       };
 
@@ -203,8 +200,8 @@ export class BitcoinPlugin implements Plugin {
         success: true,
         data: swapQuote,
         metadata: {
-          provider: 'Garden Finance',
-          quoteId: quote.id
+          provider: quote.source || 'Garden Finance',
+          quoteId: quote.quoteId
         }
       };
     } catch (error: any) {
@@ -217,49 +214,39 @@ export class BitcoinPlugin implements Plugin {
   }
 
   /**
-   * Execute atomic swap using Garden SDK
+   * Execute atomic swap — routes through our backend
    */
   private async executeSwap(params: any): Promise<ActionResult> {
     const { fromCurrency, toCurrency, amount, destinationAddress } = params;
 
     try {
-      // Step 1: Get quote
-      const quoteResult = await this.getSwapQuote({ fromCurrency, toCurrency, amount });
-      if (!quoteResult.success) {
-        return quoteResult;
-      }
-
-      // Step 2: Initiate swap with Garden SDK
-      const response = await fetch(`${this.config.gardenApiUrl}/v1/swap`, {
+      const response = await fetch(`${this.context.backendUrl}/api/v1/plugins/bitcoin/swap`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(this.config.gardenApiKey && { 'X-API-Key': this.config.gardenApiKey })
+          ...(this.context.authToken ? { 'Authorization': `Bearer ${this.context.authToken}` } : {}),
         },
         body: JSON.stringify({
-          from: fromCurrency.toLowerCase(),
-          to: toCurrency.toLowerCase(),
-          amount: amount,
-          destinationAddress: destinationAddress,
-          sourceAddress: this.context.agentAddress,
-          network: this.config.network,
-          slippageTolerance: this.config.slippageTolerance
+          fromCurrency: fromCurrency.toUpperCase(),
+          toCurrency: toCurrency.toUpperCase(),
+          amount,
+          destinationAddress: destinationAddress || this.context.agentAddress,
         })
       });
 
-      if (!response.ok) {
-        const error = await response.json() as any;
-        throw new Error(error.message || 'Failed to execute swap');
+      const body = await response.json() as any;
+
+      if (!response.ok || !body.success) {
+        throw new Error(body.error || 'Failed to execute swap');
       }
 
-      const swapData = await response.json() as any;
+      const swapData = body.data;
 
       const swapResult: SwapResult = {
         success: true,
         swapId: swapData.swapId,
-        inputTx: swapData.inputTxHash,
-        outputTx: swapData.outputTxHash,
-        actualAmount: swapData.actualOutputAmount
+        inputTx: swapData.txHash,
+        actualAmount: swapData.amount
       };
 
       this.context.logger?.info('Swap executed successfully', {
@@ -271,7 +258,7 @@ export class BitcoinPlugin implements Plugin {
       return {
         success: true,
         data: swapResult,
-        txHash: swapData.inputTxHash,
+        txHash: swapData.txHash,
         metadata: {
           provider: 'Garden Finance',
           estimatedCompletion: swapData.estimatedCompletion
@@ -287,36 +274,36 @@ export class BitcoinPlugin implements Plugin {
   }
 
   /**
-   * Get swap status
+   * Get swap status — routes through our backend
    */
   private async getSwapStatus(params: any): Promise<ActionResult> {
     const { swapId } = params;
 
     try {
-      const response = await fetch(`${this.config.gardenApiUrl}/v1/swap/${swapId}`, {
+      const response = await fetch(`${this.context.backendUrl}/api/v1/plugins/bitcoin/swap/${swapId}/status`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
-          ...(this.config.gardenApiKey && { 'X-API-Key': this.config.gardenApiKey })
+          ...(this.context.authToken ? { 'Authorization': `Bearer ${this.context.authToken}` } : {}),
         }
       });
 
-      if (!response.ok) {
-        const error = await response.json() as any;
-        throw new Error(error.message || 'Failed to get swap status');
+      const body = await response.json() as any;
+
+      if (!response.ok || !body.success) {
+        throw new Error(body.error || 'Failed to get swap status');
       }
 
-      const status = await response.json() as any;
+      const status = body.data;
 
       return {
         success: true,
         data: {
           swapId: status.swapId,
-          status: status.status, // 'pending', 'completed', 'failed'
-          inputTx: status.inputTxHash,
-          outputTx: status.outputTxHash,
-          progress: status.progress,
-          error: status.error
+          status: status.status,
+          inputTx: status.txHash,
+          confirmations: status.confirmations,
+          completedAt: status.completedAt,
         }
       };
     } catch (error: any) {

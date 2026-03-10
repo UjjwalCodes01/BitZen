@@ -12,6 +12,8 @@ import {
   LayoutDashboard,
   Bitcoin,
   Shield,
+  Key,
+  Fingerprint,
   Menu,
   X,
   LogOut,
@@ -25,11 +27,13 @@ const NAV_LINKS = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/swap", label: "Swap", icon: Bitcoin },
   { href: "/auditors", label: "Auditors", icon: Shield },
+  { href: "/sessions", label: "Sessions", icon: Key },
+  { href: "/zkproofs", label: "ZK Proofs", icon: Fingerprint },
 ];
 
 export function Navbar() {
   const pathname = usePathname();
-  const { address, isConnected } = useAccount();
+  const { address, isConnected, account } = useAccount();
   const { connect, connectors } = useConnect();
   const { disconnect } = useDisconnect();
   const { isAuthenticated, login, logout } = useAuth();
@@ -39,17 +43,19 @@ export function Navbar() {
   const [authenticating, setAuthenticating] = useState(false);
 
   const handleAuthenticate = async () => {
-    if (!address) return;
+    if (!address || !account) return;
     try {
       setAuthenticating(true);
-      // login() from AuthContext handles the full flow:
-      // signMessage → wallet sign → verify → store tokens
-      await login(address, async (message: string) => {
-        // Use personal_sign equivalent via account.signMessage
-        // For Starknet, signatures are typed data but we pass the raw message string
-        const msgHash = message;
-        // Simple signature: returns array of felt strings
-        return [msgHash];
+      await login(address, async (typedData: Record<string, unknown>) => {
+        // Sign SNIP-12 typed data using the connected Starknet wallet
+        // This opens the wallet popup for user approval
+        const signature = await account.signMessage(typedData as any);
+        // Normalize signature to string array (wallets return various formats)
+        if (Array.isArray(signature)) {
+          return signature.map(String);
+        }
+        // Some wallets return BigInt[] or Signature object
+        return [String(signature)];
       });
       setWalletDropdown(false);
     } catch (err) {

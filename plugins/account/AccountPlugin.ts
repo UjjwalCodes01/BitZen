@@ -193,26 +193,33 @@ export class AccountPlugin implements Plugin {
 
       // Register session key with backend
       const response = await fetch(
-        `${this.context.backendUrl}/api/v1/agents/${this.context.agentAddress}/sessions`,
+        `${this.context.backendUrl}/api/v1/plugins/account/session`,
         {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            ...(this.context.authToken ? { 'Authorization': `Bearer ${this.context.authToken}` } : {}),
           },
           body: JSON.stringify({
+            agentAddress: this.context.agentAddress,
             sessionPublicKey: publicKey,
-            expiresAt,
-            permissions
+            expirationBlocks: duration,
+            permissions,
+            metadata: {
+              dailyLimit: this.config.maxDailySpend,
+              transactionLimit: this.config.maxTransactionAmount,
+            },
           })
         }
       );
 
       if (!response.ok) {
         const error = await response.json() as any;
-        throw new Error(error.message || 'Failed to create session key');
+        throw new Error(error.error || error.message || 'Failed to create session key');
       }
 
-      const result = await response.json() as any;
+      const resultBody = await response.json() as any;
+      const result = resultBody.data || resultBody;
 
       // Store session locally
       this.activeSessions.set(publicKey, sessionKey);
@@ -229,7 +236,7 @@ export class AccountPlugin implements Plugin {
           agentAddress: this.context.agentAddress,
           expiresAt,
           permissions,
-          sessionId: result.id
+          sessionId: result.sessionId || result.id
         },
         txHash: result.txHash,
         metadata: {
@@ -253,13 +260,14 @@ export class AccountPlugin implements Plugin {
     const { sessionPublicKey } = params;
 
     try {
-      // Remove from backend
+      // Remove from backend via POST revoke endpoint
       const response = await fetch(
-        `${this.context.backendUrl}/api/v1/agents/${this.context.agentAddress}/sessions/${sessionPublicKey}`,
+        `${this.context.backendUrl}/api/v1/plugins/account/sessions/${sessionPublicKey}/revoke`,
         {
-          method: 'DELETE',
+          method: 'POST',
           headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            ...(this.context.authToken ? { 'Authorization': `Bearer ${this.context.authToken}` } : {}),
           }
         }
       );
@@ -318,11 +326,12 @@ export class AccountPlugin implements Plugin {
 
       // Query backend
       const response = await fetch(
-        `${this.context.backendUrl}/api/v1/agents/${this.context.agentAddress}/sessions`,
+        `${this.context.backendUrl}/api/v1/plugins/account/sessions/${this.context.agentAddress}`,
         {
           method: 'GET',
           headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            ...(this.context.authToken ? { 'Authorization': `Bearer ${this.context.authToken}` } : {}),
           }
         }
       );
@@ -331,8 +340,9 @@ export class AccountPlugin implements Plugin {
         throw new Error('Session not found');
       }
 
-      const sessions = await response.json() as any;
-      const session = sessions.find((s: any) => s.sessionKey === sessionPublicKey);
+      const body = await response.json() as any;
+      const sessions: any[] = body?.data?.sessions ?? (Array.isArray(body) ? body : []);
+      const session = sessions.find((s: any) => s.publicKey === sessionPublicKey || s.sessionKey === sessionPublicKey);
 
       if (!session) {
         throw new Error('Session not found');
@@ -357,11 +367,12 @@ export class AccountPlugin implements Plugin {
   private async listActiveSessions(): Promise<ActionResult> {
     try {
       const response = await fetch(
-        `${this.context.backendUrl}/api/v1/agents/${this.context.agentAddress}/sessions`,
+        `${this.context.backendUrl}/api/v1/plugins/account/sessions/${this.context.agentAddress}`,
         {
           method: 'GET',
           headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            ...(this.context.authToken ? { 'Authorization': `Bearer ${this.context.authToken}` } : {}),
           }
         }
       );
@@ -370,7 +381,8 @@ export class AccountPlugin implements Plugin {
         throw new Error('Failed to fetch sessions');
       }
 
-      const sessions = await response.json() as any;
+      const body = await response.json() as any;
+      const sessions: any[] = body?.data?.sessions ?? (Array.isArray(body) ? body : []);
 
       return {
         success: true,
@@ -540,17 +552,19 @@ export class AccountPlugin implements Plugin {
   private async loadActiveSessions(): Promise<void> {
     try {
       const response = await fetch(
-        `${this.context.backendUrl}/api/v1/agents/${this.context.agentAddress}/sessions`,
+        `${this.context.backendUrl}/api/v1/plugins/account/sessions/${this.context.agentAddress}`,
         {
           method: 'GET',
           headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            ...(this.context.authToken ? { 'Authorization': `Bearer ${this.context.authToken}` } : {}),
           }
         }
       );
 
       if (response.ok) {
-        const sessions = await response.json() as any;
+        const body = await response.json() as any;
+        const sessions: any[] = body?.data?.sessions ?? (Array.isArray(body) ? body : []);
         this.context.logger?.info(`Loaded ${sessions.length} active sessions`);
       }
     } catch (error) {
@@ -559,15 +573,9 @@ export class AccountPlugin implements Plugin {
   }
 
   /**
-   * Get default session permissions
+   * Get default session permissions as string array (matches backend API format)
    */
-  private getDefaultPermissions(): SessionPermissions {
-    return {
-      canExecuteTasks: true,
-      canMakeSwaps: true,
-      canStake: true,
-      maxDailySpend: this.config.maxDailySpend,
-      maxTransactionAmount: this.config.maxTransactionAmount!
-    };
+  private getDefaultPermissions(): string[] {
+    return ['execute', 'swap', 'stake', 'transfer'];
   }
 }

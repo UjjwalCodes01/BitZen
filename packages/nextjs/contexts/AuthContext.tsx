@@ -17,7 +17,7 @@ interface AuthState {
 }
 
 interface AuthContextType extends AuthState {
-  login: (address: string, signFn: (message: string) => Promise<string[]>) => Promise<void>;
+  login: (address: string, signFn: (typedData: Record<string, unknown>) => Promise<string[]>) => Promise<void>;
   logout: () => void;
 }
 
@@ -64,20 +64,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = useCallback(
     async (
       address: string,
-      signFn: (message: string) => Promise<string[]>
+      signFn: (typedData: Record<string, unknown>) => Promise<string[]>
     ) => {
-      // Step 1: Get message to sign from backend
-      const { message } = await auth.signMessage(address);
+      // Step 1: Get SNIP-12 typed data from backend (contains nonce)
+      const { typedData } = await auth.signMessage(address);
 
-      // Step 2: Sign the message with wallet
-      const signature = await signFn(message);
+      // Step 2: Sign the typed data with wallet (wallet computes SNIP-12 hash internally)
+      const signature = await signFn(typedData);
 
-      // Step 3: Verify with backend & get tokens
-      const { token, refreshToken } = await auth.verify(
-        address,
-        message,
-        signature
-      );
+      // Step 3: Verify with backend (backend reconstructs typed data from stored nonce)
+      const { token, refreshToken } = await auth.verify(address, signature);
 
       // Step 4: Store tokens
       setTokens(token, refreshToken);

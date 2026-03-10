@@ -47,8 +47,8 @@ export const serviceValidation = {
       .withMessage('Invalid endpoint URL'),
     body('stake_amount')
       .isNumeric()
-      .custom((value) => value > 0)
-      .withMessage('Stake amount must be positive'),
+      .custom((value) => value >= 0)
+      .withMessage('Stake amount must be zero or positive'),
   ] as ValidationChain[],
 
   submitReview: [

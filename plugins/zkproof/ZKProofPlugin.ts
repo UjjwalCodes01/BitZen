@@ -269,7 +269,7 @@ export class ZKProofPlugin implements Plugin {
     try {
       // Query backend for proof status
       const response = await fetch(
-        `${this.config.backendUrl}/api/v1/agents/proof/${proofHash}`,
+        `${this.config.backendUrl}/api/v1/plugins/zkproof/status/${proofHash}`,
         {
           method: 'GET',
           headers: {
@@ -320,8 +320,9 @@ export class ZKProofPlugin implements Plugin {
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
-            agentAddress,
-            zkProof,
+            address: agentAddress,
+            proof_data: typeof zkProof === 'string' ? JSON.parse(zkProof) : zkProof,
+            public_inputs: [],
             verifierType: this.config.verifierType
           })
         }

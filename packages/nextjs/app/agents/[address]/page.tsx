@@ -134,7 +134,7 @@ export default function AgentDetailPage() {
           <div className="divide-y divide-zinc-800/60">
             {sessions.map((session) => (
               <div
-                key={session.id}
+                key={session.sessionId}
                 className="px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
               >
                 <div className="flex items-center gap-3">
@@ -143,11 +143,11 @@ export default function AgentDetailPage() {
                   </div>
                   <div>
                     <p className="text-sm font-mono text-zinc-300">
-                      {session.session_key?.slice(0, 16)}...
+                      {session.publicKey?.slice(0, 16)}...
                     </p>
-                    {session.spending_limit && (
+                    {session.spendingLimit && (
                       <p className="text-xs text-zinc-500">
-                        Limit: {session.spending_limit} STRK
+                        Limit: {session.spendingLimit.daily} {session.spendingLimit.currency || "STRK"}
                       </p>
                     )}
                   </div>
@@ -159,10 +159,10 @@ export default function AgentDetailPage() {
                     variant={session.status === "revoked" ? "error" : "success"}
                     pulse={session.status !== "revoked"}
                   />
-                  {session.expires_at && (
+                  {session.expiresAt && (
                     <span className="text-xs text-zinc-500 flex items-center gap-1">
                       <Clock className="w-3 h-3" />
-                      Expires {timeAgo(session.expires_at)}
+                      Expires {timeAgo(new Date(session.expiresAt * 1000).toISOString())}
                     </span>
                   )}
                 </div>

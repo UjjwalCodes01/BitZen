@@ -1,4 +1,4 @@
-import { Account, CallData, Contract, RpcProvider, num } from 'starknet';
+import { Account, CallData, Contract, RpcProvider, cairo } from 'starknet';
 import { logger } from '../utils/logger';
 import { AppError } from '../middleware/errorHandler';
 
@@ -13,21 +13,33 @@ export class StarknetService {
   private serviceRegistryContract: Contract;
 
   constructor() {
+    const rpcUrl = process.env.STARKNET_RPC_URL;
+    if (!rpcUrl) {
+      throw new Error('STARKNET_RPC_URL environment variable is required');
+    }
+
     // Initialize provider
     this.provider = new RpcProvider({
-      nodeUrl: process.env.STARKNET_RPC_URL || 'https://rpc.starknet-testnet.lava.build',
+      nodeUrl: rpcUrl,
     });
+
+    if (!process.env.ZKPASSPORT_ADDRESS) {
+      throw new Error('ZKPASSPORT_ADDRESS environment variable is required');
+    }
+    if (!process.env.SERVICE_REGISTRY_ADDRESS) {
+      throw new Error('SERVICE_REGISTRY_ADDRESS environment variable is required');
+    }
 
     // Initialize contracts
     this.zkPassportContract = new Contract(
       ZKPassportABI,
-      process.env.ZKPASSPORT_ADDRESS || '',
+      process.env.ZKPASSPORT_ADDRESS,
       this.provider
     );
 
     this.serviceRegistryContract = new Contract(
       ServiceRegistryABI,
-      process.env.SERVICE_REGISTRY_ADDRESS || '',
+      process.env.SERVICE_REGISTRY_ADDRESS,
       this.provider
     );
 
@@ -192,10 +204,10 @@ export class StarknetService {
       logger.info(`Registering service on-chain: ${name}`);
 
       const callData = CallData.compile({
-        name,
-        description,
-        endpoint,
-        stake_amount: num.toHex(stakeAmount),
+        service_name: name,
+        service_description: description,
+        service_endpoint: endpoint,
+        stake_amount: cairo.uint256(stakeAmount),
       });
 
       const { transaction_hash } = await this.account.execute({
@@ -214,17 +226,20 @@ export class StarknetService {
 
   /**
    * Get service information
+   * Returns: (provider: ContractAddress, name: felt252, description: felt252, total_stake: u256, created_at: u64, is_active: bool)
    */
   async getServiceInfo(serviceId: string): Promise<any> {
     try {
-      const result = await this.serviceRegistryContract.get_service_info(serviceId);
+      const result = await this.serviceRegistryContract.get_service(serviceId);
       
+      // Cairo tuple: (ContractAddress, felt252, felt252, u256, u64, bool)
       return {
-        provider: result.provider,
-        name: result.name,
-        endpoint: result.endpoint,
-        total_stake: result.total_stake.toString(),
-        is_active: result.is_active,
+        provider: result[0]?.toString() || '0x0',
+        name: result[1]?.toString() || '',
+        description: result[2]?.toString() || '',
+        total_stake: result[3]?.toString() || '0',
+        created_at: result[4]?.toString() || '0',
+        is_active: result[5] === true || result[5] === 1n || result[5] === '0x1',
       };
     } catch (error) {
       logger.error('Failed to get service info:', error);
@@ -276,7 +291,7 @@ export class StarknetService {
 
       const callData = CallData.compile({
         service_id: serviceId,
-        amount: num.toHex(amount),
+        stake_amount: cairo.uint256(amount),
       });
 
       const { transaction_hash } = await this.account.execute({

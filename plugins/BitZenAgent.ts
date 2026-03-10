@@ -9,8 +9,14 @@ import { BitcoinPlugin } from './bitcoin/BitcoinPlugin';
 import { ZKProofPlugin } from './zkproof/ZKProofPlugin';
 import { AccountPlugin } from './account/AccountPlugin';
 import { AgentContext, PluginConfig } from './types';
+import { ec, typedData as starknetTypedData } from 'starknet';
+import * as dotenv from 'dotenv';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as readline from 'readline';
+
+// Load env from backend .env (has all Starknet keys, RPC URLs, etc.)
+dotenv.config({ path: path.join(__dirname, '../packages/backend/.env') });
 
 export interface AgentConfig {
   name: string;
@@ -47,6 +53,9 @@ export class BitZenAgent {
     console.log(`\n🤖 Initializing ${this.config.name}...`);
     console.log(`📋 ${this.config.description}\n`);
 
+    // Authenticate with backend to get JWT
+    await this.authenticate();
+
     // Register plugins
     for (const pluginConfig of this.config.plugins) {
       await this.registerPlugin(pluginConfig);
@@ -56,6 +65,75 @@ export class BitZenAgent {
     const health = await this.pluginManager.healthCheckAll();
     console.log('\n📊 Plugin Health Check:', health);
     console.log('\n✅ Agent initialized successfully!\n');
+  }
+
+  /**
+   * Authenticate agent with the backend using SNIP-12 typed data signing.
+   * Gets a JWT that plugins use for authenticated backend calls.
+   */
+  private async authenticate(): Promise<void> {
+    const privateKey = process.env.STARKNET_PRIVATE_KEY;
+    if (!privateKey) {
+      console.warn('⚠️  STARKNET_PRIVATE_KEY not set — skipping auth (some features will be unavailable)');
+      return;
+    }
+
+    try {
+      // Step 1: Request nonce / typed data from backend
+      const nonceRes = await fetch(`${this.context.backendUrl}/api/v1/auth/sign-message`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address: this.context.agentAddress }),
+      });
+
+      if (!nonceRes.ok) {
+        const err = await nonceRes.json().catch(() => ({ error: nonceRes.statusText })) as any;
+        throw new Error(`Failed to get nonce: ${err.error || err.message || nonceRes.statusText}`);
+      }
+
+      const nonceBody = await nonceRes.json() as any;
+      const loginTypedData = nonceBody.data?.typedData || nonceBody.typedData;
+
+      if (!loginTypedData) {
+        throw new Error('No typedData in sign-message response');
+      }
+
+      // Step 2: Compute SNIP-12 message hash and sign with private key
+      const msgHash = starknetTypedData.getMessageHash(loginTypedData, this.context.agentAddress);
+      // Pad hash to 64 hex chars (required by @noble/curves for deterministic signing)
+      const hashHex = msgHash.replace('0x', '').padStart(64, '0');
+      const sig = ec.starkCurve.sign(hashHex, privateKey.replace('0x', ''));
+      const signature = [sig.r.toString(), sig.s.toString()];
+
+      // Step 3: Submit signature to get JWT
+      const verifyRes = await fetch(`${this.context.backendUrl}/api/v1/auth/verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          address: this.context.agentAddress,
+          signature,
+        }),
+      });
+
+      if (!verifyRes.ok) {
+        const err = await verifyRes.json().catch(() => ({ error: verifyRes.statusText })) as any;
+        throw new Error(`Auth verify failed: ${err.error || err.message || verifyRes.statusText}`);
+      }
+
+      const verifyBody = await verifyRes.json() as any;
+      const token = verifyBody.data?.token || verifyBody.token;
+
+      if (!token) {
+        throw new Error('No token in verify response');
+      }
+
+      // Store token in context so all plugins can use it
+      this.context.authToken = token;
+      console.log('🔑 Agent authenticated with backend successfully');
+    } catch (error: any) {
+      console.warn(`⚠️  Agent auth failed: ${error.message}`);
+      console.warn('   Some authenticated features (swaps, sessions) will be unavailable');
+    }
   }
 
   /**
@@ -124,12 +202,23 @@ export class BitZenAgent {
       return this.handleBalanceCommand(input);
     }
 
+    // Help
+    if (lowerInput === 'help' || lowerInput === '?') {
+      return 'Available commands:\n' +
+             '  balance           - Check Bitcoin balance\n' +
+             '  swap / exchange   - Get BTC ↔ STRK swap quote\n' +
+             '  session / key     - Create a session key\n' +
+             '  proof / verify    - Generate or verify ZK proof\n' +
+             '  help              - Show this help\n' +
+             '  exit / quit       - Stop the agent';
+    }
+
     return 'I can help you with:\n' +
            '- Bitcoin swaps (swap, exchange)\n' +
            '- ZK proofs (proof, verify)\n' +
            '- Session keys (session, key)\n' +
            '- Balance checks (balance)\n\n' +
-           'What would you like to do?';
+           'Type "help" for all commands.';
   }
 
   /**
@@ -217,7 +306,8 @@ export class BitZenAgent {
    */
   private async handleAccountCommand(input: string): Promise<string> {
     const result = await this.executeCommand('createSession', {
-      duration: 86400 // 24 hours
+      duration: 86400, // 24 hours
+      permissions: ['execute', 'swap', 'stake', 'transfer'],
     });
 
     if (result.success) {
@@ -248,7 +338,7 @@ export class BitZenAgent {
 }
 
 /**
- * Example usage
+ * Interactive agent REPL
  */
 export async function runAgent() {
   const context: AgentContext = {
@@ -264,27 +354,60 @@ export async function runAgent() {
   try {
     await agent.initialize();
 
-    // Interactive mode
-    console.log('💬 Chat with your agent (type "exit" to quit):\n');
-    
-    // Example commands
-    const commands = [
-      'What is my Bitcoin balance?',
-      'Get quote for BTC to STRK swap',
-      'Create a session key'
-    ];
+    console.log('\n💬 BitZen Agent Interactive Mode');
+    console.log('   Type your commands below. Type "exit" or "quit" to stop.\n');
+    console.log('   Examples:');
+    console.log('     What is my Bitcoin balance?');
+    console.log('     Get quote for BTC to STRK swap');
+    console.log('     Create a session key');
+    console.log('     Generate a ZK proof');
+    console.log('     help\n');
 
-    for (const cmd of commands) {
-      console.log(`\n> ${cmd}`);
-      const response = await agent.processInput(cmd);
-      console.log(`\n${response}`);
-      await new Promise(resolve => setTimeout(resolve, 1000));
-    }
+    const rl = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout,
+      prompt: '🤖 > ',
+    });
+
+    rl.prompt();
+
+    rl.on('line', async (line: string) => {
+      const input = line.trim();
+      if (!input) {
+        rl.prompt();
+        return;
+      }
+
+      if (input.toLowerCase() === 'exit' || input.toLowerCase() === 'quit') {
+        rl.close();
+        return;
+      }
+
+      try {
+        const response = await agent.processInput(input);
+        console.log(`\n${response}\n`);
+      } catch (err: any) {
+        console.error(`\n❌ Error: ${err.message}\n`);
+      }
+
+      rl.prompt();
+    });
+
+    rl.on('close', async () => {
+      await agent.shutdown();
+      process.exit(0);
+    });
+
+    // Handle Ctrl+C gracefully
+    process.on('SIGINT', () => {
+      console.log('\n');
+      rl.close();
+    });
 
   } catch (error) {
-    console.error('Agent error:', error);
-  } finally {
+    console.error('Agent initialization error:', error);
     await agent.shutdown();
+    process.exit(1);
   }
 }
 

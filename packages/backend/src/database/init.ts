@@ -1,6 +1,8 @@
 import { pool } from './pool';
 import { logger } from '../utils/logger';
 
+export { pool };
+
 export const initDatabase = async (): Promise<void> => {
   try {
     // Test connection
@@ -31,7 +33,7 @@ const createTables = async (): Promise<void> => {
     `CREATE TABLE IF NOT EXISTS agents (
       id SERIAL PRIMARY KEY,
       address VARCHAR(66) UNIQUE NOT NULL,
-      tx_hash VARCHAR(66) NOT NULL,
+      tx_hash VARCHAR(66),
       registered_at TIMESTAMP NOT NULL,
       is_verified BOOLEAN DEFAULT false,
       revoked_at TIMESTAMP,

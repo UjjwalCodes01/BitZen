@@ -294,6 +294,37 @@ router.post('/execute', authenticate, async (req: Request, res: Response) => {
       });
     }
 
+    // Enforce permission check: taskType must be in session.permissions
+    if (session.permissions && session.permissions.length > 0) {
+      if (!session.permissions.includes(taskType)) {
+        return res.status(403).json({
+          success: false,
+          error: `Task type '${taskType}' is not permitted for this session. Allowed: ${session.permissions.join(', ')}`,
+        });
+      }
+    }
+
+    // Enforce spending limits
+    const txAmount = parameters.amount ? parseFloat(parameters.amount) : 0;
+    if (txAmount > 0) {
+      const perTxLimit = parseFloat(session.spendingLimit?.perTransaction || '0');
+      if (perTxLimit > 0 && txAmount > perTxLimit) {
+        return res.status(403).json({
+          success: false,
+          error: `Transaction amount ${txAmount} exceeds per-transaction limit of ${perTxLimit} ${session.spendingLimit?.currency || 'STRK'}`,
+        });
+      }
+
+      const dailyLimit = parseFloat(session.spendingLimit?.daily || '0');
+      const totalSpent = parseFloat(session.usage?.totalSpent || '0');
+      if (dailyLimit > 0 && (totalSpent + txAmount) > dailyLimit) {
+        return res.status(403).json({
+          success: false,
+          error: `Transaction would exceed daily spending limit. Spent: ${totalSpent}, Requested: ${txAmount}, Limit: ${dailyLimit} ${session.spendingLimit?.currency || 'STRK'}`,
+        });
+      }
+    }
+
     // Execute on-chain transaction using the session key
     // parameters must include: contractAddress, entrypoint, calldata
     const taskId = `task_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;

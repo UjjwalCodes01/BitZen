@@ -1,16 +1,16 @@
 {
   "AgentAccount": {
-    "classHash": "0x12ccc0cdeddc1eea432f376c78dca4d54db8bd0de66b3e150ecfb9d5cf47f00",
-    "address": ""
+    "classHash": "0x04fe9dcc162b3da8d164d2a92f273491e8d8e76562af8b7fe5f82b66f4253f91",
+    "address": "0x00118c2393507d824ff5a4698f010b5a43f56aaa95de1bffef7e4fa0f3d32f54"
   },
   "ZKPassport": {
     "classHash": "0x14709c5ff28f29a01a957c6bf84cdb30cee49ab0d02d316406fbf9c2d664131",
     "address": "0x045298a1c7f2f2faf2aa75f794c5f96a5c282a80d2dbcfd4bfb5045a76101667"
   },
   "ServiceRegistry": {
-    "classHash": "",
-    "address": "0x06b3b6f139090875372d25adfa8401c50474a05aeb8e4c1d0365601563aa32da"
+    "classHash": "0x06c897c81cda90641e3ab51a6dc4a87392abe266e007fd60ac01cc5670f87692",
+    "address": "0x003dd0b9ff0f9f41362c53072013af888ea0b3b5a787ed9fe3d3bccc837b013e"
   },
   "network": "sepolia",
-  "deployedAt": "2026-02-02T16:44:07Z"
+  "deployedAt": "2026-03-10T12:15:00Z"
 }

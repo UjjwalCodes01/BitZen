@@ -9,9 +9,9 @@ const controller = new AgentController();
 /**
  * @route   POST /api/v1/agents/register
  * @desc    Register a new agent with ZK proof
- * @access  Public
+ * @access  Private (Authenticated)
  */
-router.post('/register', agentValidation.register, controller.registerAgent);
+router.post('/register', authenticate, agentValidation.register, controller.registerAgent);
 
 /**
  * @route   GET /api/v1/agents/:address
@@ -44,8 +44,8 @@ router.post('/:address/sessions', authenticate, controller.createSession);
 /**
  * @route   GET /api/v1/agents/:address/sessions
  * @desc    Get agent sessions
- * @access  Public
+ * @access  Private (Owner only)
  */
-router.get('/:address/sessions', controller.getSessions);
+router.get('/:address/sessions', authenticate, controller.getSessions);
 
 export default router;

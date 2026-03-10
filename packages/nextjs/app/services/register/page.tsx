@@ -26,6 +26,7 @@ export default function RegisterServicePage() {
     name: "",
     description: "",
     category: "AI/ML",
+    endpoint: "",
     price: "",
   });
 
@@ -39,14 +40,19 @@ export default function RegisterServicePage() {
       toast.error("Service name is required");
       return;
     }
+    if (!form.endpoint.trim()) {
+      toast.error("Service endpoint URL is required");
+      return;
+    }
 
     try {
       setIsSubmitting(true);
       const result = await services.register({
         name: form.name.trim(),
         description: form.description.trim(),
+        endpoint: form.endpoint.trim(),
+        stake_amount: form.price || "0",
         category: form.category,
-        price: form.price || "0",
       });
       toast.success("Service registered!");
       router.push(`/services/${result.service?.id || ""}`);
@@ -109,6 +115,20 @@ export default function RegisterServicePage() {
               placeholder="Describe your service, pricing model, SLAs..."
               className="textarea"
               rows={4}
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-zinc-300 mb-2">
+              Service Endpoint URL *
+            </label>
+            <input
+              type="url"
+              value={form.endpoint}
+              onChange={(e) => setForm({ ...form, endpoint: e.target.value })}
+              placeholder="https://api.example.com/service"
+              className="input"
+              required
             />
           </div>
 

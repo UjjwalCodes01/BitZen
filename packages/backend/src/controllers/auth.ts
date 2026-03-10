@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { asyncHandler, AppError } from '../middleware/errorHandler';
-import { verifyStarknetSignature } from '../utils/signature';
+import { verifyStarknetTypedDataSignature, buildLoginTypedData } from '../utils/signature';
 import { logger } from '../utils/logger';
 import { pool } from '../database/pool';
 
@@ -33,22 +33,24 @@ export class AuthController {
       throw new AppError('Address required', 400);
     }
 
-    // Generate cryptographically secure nonce
-    const nonce = crypto.randomBytes(32).toString('hex');
-    const message = `BitZen Login\nAddress: ${address}\nNonce: ${nonce}`;
+    // Generate cryptographically secure nonce (31 bytes to fit in felt252)
+    const nonce = crypto.randomBytes(31).toString('hex');
+
+    // Build SNIP-12 typed data for wallet signing
+    const typedData = buildLoginTypedData(address, nonce);
 
     // Store nonce in database for server-side validation
     await pool.query(
       `INSERT INTO auth_nonces (address, nonce, message, expires_at)
        VALUES ($1, $2, $3, NOW() + INTERVAL '5 minutes')
        ON CONFLICT (address) DO UPDATE SET nonce = $2, message = $3, expires_at = NOW() + INTERVAL '5 minutes'`,
-      [address, nonce, message]
+      [address, nonce, JSON.stringify(typedData)]
     );
 
     res.status(200).json({
       success: true,
       data: {
-        message,
+        typedData,
         address
       }
     });
@@ -59,26 +61,27 @@ export class AuthController {
    * POST /api/v1/auth/verify
    */
   verifySignature = asyncHandler(async (req: Request, res: Response): Promise<void> => {
-    const { address, message, signature } = req.body;
+    const { address, signature } = req.body;
 
-    if (!address || !message || !signature) {
-      throw new AppError('Address, message, and signature required', 400);
+    if (!address || !signature) {
+      throw new AppError('Address and signature required', 400);
     }
 
-    // Validate nonce from database (H1 fix)
+    // Look up nonce from database
     const nonceResult = await pool.query(
-      `SELECT nonce, message FROM auth_nonces WHERE address = $1 AND expires_at > NOW()`,
+      `SELECT nonce FROM auth_nonces WHERE address = $1 AND expires_at > NOW()`,
       [address]
     );
     if (nonceResult.rows.length === 0) {
       throw new AppError('Nonce expired or not found. Request a new sign message.', 401);
     }
-    if (nonceResult.rows[0].message !== message) {
-      throw new AppError('Message does not match server-issued nonce', 401);
-    }
 
-    // Verify Starknet signature
-    const isValid = await verifyStarknetSignature(address, message, signature);
+    // Reconstruct the same typed data the frontend signed
+    const nonce = nonceResult.rows[0].nonce;
+    const typedData = buildLoginTypedData(address, nonce);
+
+    // Verify Starknet SNIP-12 typed data signature
+    const isValid = await verifyStarknetTypedDataSignature(address, typedData, signature);
 
     if (!isValid) {
       throw new AppError('Invalid signature', 401);

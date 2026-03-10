@@ -42,7 +42,7 @@ export default function AuditorsPage() {
     try {
       setSubmitting(true);
       await auditorsApi.stake({
-        serviceId: stakeForm.serviceId,
+        service_id: stakeForm.serviceId,
         amount: stakeForm.amount,
       });
       toast.success("Staked successfully!");
@@ -59,7 +59,7 @@ export default function AuditorsPage() {
   const handleUnstake = async (serviceId: string) => {
     if (!isConnected) return;
     try {
-      await auditorsApi.unstake({ serviceId });
+      await auditorsApi.unstake({ service_id: serviceId });
       toast.success("Unstaked successfully!");
       refetch();
     } catch (err: unknown) {
@@ -188,7 +188,7 @@ export default function AuditorsPage() {
                   </div>
                   <div>
                     <p className="text-sm font-medium text-zinc-200">
-                      Service #{stake.service_id?.slice(0, 8) || "—"}
+                      Service #{String(stake.service_id ?? "").slice(0, 8) || "—"}
                     </p>
                     <div className="flex items-center gap-3 mt-1">
                       <span className="text-sm font-semibold text-primary-400">

@@ -40,6 +40,7 @@ pub trait IServiceRegistry<TContractState> {
 #[starknet::contract]
 mod ServiceRegistry {
     use core::num::traits::Zero;
+    use core::pedersen::pedersen;
     use openzeppelin::token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
     use starknet::storage::{
         Map, StoragePathEntry, StoragePointerReadAccess, StoragePointerWriteAccess,
@@ -85,6 +86,7 @@ mod ServiceRegistry {
         category_counts: Map<felt252, u32>,
         total_services: u32,
         slash_threshold: u256,
+        reviewer_records: Map<(felt252, ContractAddress), bool>, // (service_id, reviewer) -> has_reviewed
     }
 
     #[event]
@@ -350,7 +352,17 @@ mod ServiceRegistry {
             let service = self.services.entry(service_id).read();
 
             assert(!service.provider.is_zero(), 'Service not found');
-            assert(rating <= 5, 'Invalid rating');
+            assert(rating >= 1 && rating <= 5, 'Rating must be 1-5');
+
+            // Prevent self-review
+            assert(caller != service.provider, 'Cannot review own service');
+
+            // Prevent duplicate reviews from the same address
+            let already_reviewed = self.reviewer_records.entry((service_id, caller)).read();
+            assert(!already_reviewed, 'Already reviewed');
+
+            // Mark as reviewed
+            self.reviewer_records.entry((service_id, caller)).write(true);
 
             // Update reputation - create new struct instance
             let reputation = self.reputations.entry(service_id).read();
@@ -408,9 +420,9 @@ mod ServiceRegistry {
         fn _generate_service_id(
             self: @ContractState, provider: ContractAddress, name: felt252,
         ) -> felt252 {
-            // Simple service ID generation (provider + name)
+            // Use Pedersen hash to generate collision-resistant service IDs
             let provider_felt: felt252 = provider.into();
-            provider_felt + name
+            pedersen(provider_felt, name)
         }
     }
 }

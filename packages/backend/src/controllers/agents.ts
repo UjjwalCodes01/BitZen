@@ -30,55 +30,44 @@ export class AgentController {
     logger.info(`Registering agent: ${address}`);
 
     // Convert frontend format to backend format if needed
-    const proofData = proof_data || (zkProof ? [zkProof] : []);
+    const proofData = proof_data || (zkProof ? (Array.isArray(zkProof) ? zkProof : [zkProof]) : []);
     const publicInputs = public_inputs || (publicKey ? [address, publicKey] : [address]);
 
-    try {
-      // Try on-chain registration first
-      const txHash = await starknetService.registerAgent(address, proofData, publicInputs);
-      
-      // Save agent to database with pending verification
-      const agent = await agentService.createAgent({
-        address,
-        tx_hash: txHash,
-        registered_at: new Date(),
-        is_verified: false // Will be verified after tx confirmation
-      });
+    // Attempt on-chain registration if proof data is present
+    let txHash: string | null = null;
+    let onChainError: string | null = null;
 
-      res.status(201).json({
-        success: true,
-        message: 'Agent registration initiated on-chain',
-        data: {
-          agent,
-          tx_hash: txHash
-        }
-      });
-    } catch (onchainError: any) {
-      // If on-chain fails due to insufficient funds, register in DB only
-      if (onchainError.message?.includes('Overflow') || onchainError.message?.includes('Insufficient')) {
-        logger.warn(`On-chain registration failed (likely insufficient STRK): ${onchainError.message}`);
-        logger.info(`Registering agent in database only: ${address}`);
-        
-        const agent = await agentService.createAgent({
-          address,
-          tx_hash: null,
-          registered_at: new Date(),
-          is_verified: false
-        });
-
-        res.status(201).json({
-          success: true,
-          message: 'Agent registered in database. On-chain registration pending STRK tokens.',
-          data: {
-            agent,
-            note: 'Please get STRK tokens from https://starknet-faucet.vercel.app/ to complete on-chain registration'
-          }
-        });
-      } else {
-        // Re-throw other errors
-        throw onchainError;
+    if (proofData && proofData.length > 0) {
+      try {
+        txHash = await starknetService.registerAgent(address, proofData, publicInputs);
+      } catch (err: any) {
+        onChainError = err.message || 'On-chain registration failed';
+        logger.warn(`On-chain agent registration failed (saving to DB anyway): ${onChainError}`);
       }
+    } else {
+      onChainError = 'No proof data provided — registered in database only';
+      logger.info(`Agent ${address} registered without ZK proof (DB-only)`);
     }
+
+    // Save agent to database regardless
+    const agent = await agentService.createAgent({
+      address,
+      tx_hash: txHash || 'pending',
+      registered_at: new Date(),
+      is_verified: false
+    });
+
+    res.status(201).json({
+      success: true,
+      message: txHash
+        ? 'Agent registration initiated on-chain'
+        : 'Agent registered in database (on-chain pending — generate ZK proof to complete)',
+      data: {
+        agent,
+        tx_hash: txHash,
+        on_chain_error: onChainError,
+      }
+    });
   });
 
   /**

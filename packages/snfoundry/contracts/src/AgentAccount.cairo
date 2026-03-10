@@ -90,6 +90,7 @@ mod AgentAccount {
         allowed_methods: Map<(felt252, felt252), bool>, // (session_key, method_selector) -> allowed
         spending_policy: SpendingPolicy,
         total_spent_today: u256,
+        tx_nonce: u64, // Incrementing nonce for replay protection
     }
 
     #[event]
@@ -324,9 +325,12 @@ mod AgentAccount {
 
             let current_block = get_block_number();
 
-            // 1. Reconstruct message hash
-            // Binds signature to specific tx parameters and current block (prevents replay)
-            let message_hash = self._compute_message_hash(to, selector, amount, current_block);
+            // 1. Use stored nonce (not block number) for replay protection
+            let nonce = self.tx_nonce.read();
+            let message_hash = self._compute_message_hash(to, selector, amount, nonce);
+
+            // Increment nonce BEFORE execution (prevents reentrancy replay)
+            self.tx_nonce.write(nonce + 1);
 
             // 2. Cryptographic verification (Replaces pure recovery)
             // This ensures the signature (r, s) matches the provided key and hash

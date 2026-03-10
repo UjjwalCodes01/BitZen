@@ -13,6 +13,7 @@ import {
   CheckCircle,
   Clock,
   Bitcoin as BtcIcon,
+  AlertTriangle,
 } from "lucide-react";
 import { formatCurrency, formatCrypto, cn } from "@/lib/utils";
 import toast from "react-hot-toast";
@@ -24,7 +25,7 @@ const TOKENS = [
 
 export default function SwapPage() {
   const { address, isConnected } = useAccount();
-  const { rates, isLoading: ratesLoading, refetch: refreshRates } = useExchangeRates();
+  const { rates, isLoading: ratesLoading, error: ratesError, refetch: refreshRates } = useExchangeRates();
   const [fromToken, setFromToken] = useState("BTC");
   const [toToken, setToToken] = useState("STRK");
   const [amount, setAmount] = useState("");
@@ -68,10 +69,10 @@ export default function SwapPage() {
     try {
       setSwapping(true);
       const result = await bitcoin.executeSwap({
-        fromToken,
-        toToken,
+        fromCurrency: fromToken,
+        toCurrency: toToken,
         amount,
-        recipientAddress: address,
+        destinationAddress: address,
       });
       toast.success(`Swap initiated! ID: ${result.swapId}`);
       setAmount("");
@@ -112,10 +113,15 @@ export default function SwapPage() {
                   </span>
                 </>
               )}
-              <div className="flex items-center gap-1.5 text-xs text-emerald-400">
-                <TrendingUp className="w-3.5 h-3.5" />
-                Live
-              </div>
+              {!rates && !ratesLoading && (
+                <span className="text-xs text-amber-400">Rates unavailable</span>
+              )}
+              {rates && (
+                <div className="flex items-center gap-1.5 text-xs text-emerald-400">
+                  <TrendingUp className="w-3.5 h-3.5" />
+                  Live
+                </div>
+              )}
             </div>
             <button
               onClick={() => refreshRates()}
@@ -126,6 +132,22 @@ export default function SwapPage() {
             </button>
           </div>
         </div>
+
+        {/* Garden Finance / Rate Availability Warning */}
+        {ratesError && (
+          <div className="card p-4 mb-6 border-amber-500/20 bg-amber-500/5">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-medium text-amber-300 mb-1">Exchange rates unavailable</p>
+                <p className="text-xs text-zinc-400">
+                  Live price data from CoinGecko is temporarily unavailable. Swap execution
+                  through Garden Finance may also be limited. Please try again later.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Swap Card */}
         <div className="card p-6">

@@ -23,7 +23,7 @@ import { errorHandler } from './middleware/errorHandler';
 import { logger } from './utils/logger';
 
 // Import database
-import { initDatabase } from './database/init';
+import { initDatabase, pool } from './database/init';
 
 const app: Application = express();
 const PORT = process.env.PORT || 3002;
@@ -88,19 +88,16 @@ app.use((_req, res: Response) => {
 app.use(errorHandler);
 
 // Initialize database and start server
+let server: ReturnType<typeof app.listen>;
+
 const startServer = async () => {
   try {
-    // Initialize database connection
-    try {
-      await initDatabase();
-      logger.info('Database initialized successfully');
-    } catch (dbError) {
-      logger.warn('Database connection failed, starting without DB:', dbError);
-      logger.warn('API will run in limited mode');
-    }
+    // Initialize database connection — required for operation
+    await initDatabase();
+    logger.info('Database initialized successfully');
 
     // Start server
-    app.listen(PORT, () => {
+    server = app.listen(PORT, () => {
       logger.info(`🚀 BitZen Backend API running on port ${PORT}`);
       logger.info(`📊 Environment: ${process.env.NODE_ENV}`);
       logger.info(`🌐 Network: ${process.env.STARKNET_NETWORK}`);
@@ -113,15 +110,31 @@ const startServer = async () => {
 };
 
 // Graceful shutdown
-process.on('SIGTERM', () => {
-  logger.info('SIGTERM signal received: closing HTTP server');
-  process.exit(0);
-});
+const gracefulShutdown = (signal: string) => {
+  logger.info(`${signal} received: starting graceful shutdown`);
+  if (server) {
+    server.close(async () => {
+      logger.info('HTTP server closed');
+      try {
+        await pool.end();
+        logger.info('Database pool closed');
+      } catch (e) {
+        logger.error('Error closing database pool:', e);
+      }
+      process.exit(0);
+    });
+    // Force shutdown after 10s
+    setTimeout(() => {
+      logger.error('Forced shutdown after timeout');
+      process.exit(1);
+    }, 10000);
+  } else {
+    process.exit(0);
+  }
+};
 
-process.on('SIGINT', () => {
-  logger.info('SIGINT signal received: closing HTTP server');
-  process.exit(0);
-});
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
 startServer();
 

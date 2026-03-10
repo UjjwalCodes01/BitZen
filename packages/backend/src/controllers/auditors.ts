@@ -19,28 +19,34 @@ export class AuditorController {
       throw new AppError('Authentication required', 401);
     }
 
+    // Attempt on-chain staking (best-effort — requires ERC-20 token approval + balance)
     let txHash: string | null = null;
+    let onChainError: string | null = null;
     try {
       txHash = await starknetService.stakeAsAuditor(service_id, amount);
-    } catch (onchainError: any) {
-      logger.warn(`On-chain staking failed: ${onchainError.message}`);
+    } catch (err: any) {
+      onChainError = err.message || 'On-chain staking failed';
+      logger.warn(`On-chain staking failed (saving to DB anyway): ${onChainError}`);
     }
 
-    // Save stake to database (with or without tx_hash)
+    // Save stake to database regardless
     const stake = await auditorService.createStake({
       service_id,
       auditor_address,
       amount,
-      tx_hash: txHash,
+      tx_hash: txHash || 'pending',
       is_active: true
     });
 
     res.status(201).json({
       success: true,
-      message: txHash ? 'Staked successfully' : 'Stake recorded in database. On-chain staking pending STRK tokens.',
+      message: txHash
+        ? 'Staked successfully (on-chain + database)'
+        : 'Stake recorded in database (on-chain pending — ensure ERC-20 token approval & balance)',
       data: {
         stake,
-        tx_hash: txHash
+        tx_hash: txHash,
+        on_chain_error: onChainError,
       }
     });
   });
@@ -57,19 +63,15 @@ export class AuditorController {
       throw new AppError('Authentication required', 401);
     }
 
-    let txHash: string | null = null;
-    try {
-      txHash = await starknetService.unstake(service_id);
-    } catch (onchainError: any) {
-      logger.warn(`On-chain unstake failed: ${onchainError.message}`);
-    }
+    // Execute on-chain unstake — must succeed
+    const txHash = await starknetService.unstake(service_id);
 
-    // Update database regardless of on-chain result
+    // Update database only after on-chain success
     await auditorService.unstake(service_id, auditor_address);
 
     res.status(200).json({
       success: true,
-      message: txHash ? 'Unstaked successfully' : 'Unstake recorded. On-chain confirmation pending.',
+      message: 'Unstaked successfully',
       data: {
         tx_hash: txHash
       }
