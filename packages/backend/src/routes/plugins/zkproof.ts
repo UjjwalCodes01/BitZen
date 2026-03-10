@@ -111,7 +111,8 @@ router.post('/generate', authenticate, async (req: Request, res: Response) => {
     fs.writeFileSync(proofFile, JSON.stringify(proof));
     fs.writeFileSync(pubInputFile, JSON.stringify(publicSignals));
 
-    let calldata: string[];
+    let calldata: string[] = [];
+    let calldataAvailable = false;
     // Use --format snforge which outputs one hex string per line.
     // CRITICAL: --format array outputs JSON numbers which JavaScript JSON.parse
     // truncates to float64 (~53 bits). Garaga values need up to 96 bits.
@@ -130,10 +131,11 @@ router.post('/generate', authenticate, async (req: Request, res: Response) => {
       const snforgeOut = path.join(path.dirname(calldataFile), 'proof_calldata.txt');
       calldata = fs.readFileSync(snforgeOut, 'utf8').trim().split('\n').map((l: string) => l.trim()).filter(Boolean);
       if (calldata.length === 0) throw new Error('Empty garaga output');
+      calldataAvailable = true;
       logger.info(`Garaga calldata generated: ${calldata.length} felt252 elements`);
     } catch (e: any) {
-      logger.error('garaga calldata failed:', e.message);
-      throw new Error(`Failed to generate garaga calldata: ${e.message}. Ensure GARAGA_BIN is set and the garaga CLI is installed.`);
+      // Garaga CLI may not be installed in production (e.g. Render) — proof is still valid
+      logger.warn(`Garaga calldata skipped (CLI not available): ${e.message}`);
     } finally {
       if (fs.existsSync(proofFile)) fs.unlinkSync(proofFile);
       if (fs.existsSync(pubInputFile)) fs.unlinkSync(pubInputFile);
@@ -162,7 +164,8 @@ router.post('/generate', authenticate, async (req: Request, res: Response) => {
         proofId,
         proof,
         publicSignals,
-        calldata,
+        calldata: calldataAvailable ? calldata : undefined,
+        calldataAvailable,
         commitment:  commitment.toString(),
         expiresAt:   Number(expiresAt),
         createdAt:   Date.now(),

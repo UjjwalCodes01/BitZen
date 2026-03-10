@@ -49,13 +49,32 @@ export class AgentController {
       logger.info(`Agent ${address} registered without ZK proof (DB-only)`);
     }
 
-    // Save agent to database regardless
-    const agent = await agentService.createAgent({
-      address,
-      tx_hash: txHash || 'pending',
-      registered_at: new Date(),
-      is_verified: false
-    });
+    // Save agent to database regardless — handle duplicate gracefully
+    let agent;
+    try {
+      agent = await agentService.createAgent({
+        address,
+        tx_hash: txHash || 'pending',
+        registered_at: new Date(),
+        is_verified: false
+      });
+    } catch (dbError: any) {
+      // Unique constraint violation — agent already exists
+      if (dbError.code === '23505' || dbError.message?.includes('duplicate')) {
+        const existing = await agentService.getAgentByAddress(address);
+        res.status(200).json({
+          success: true,
+          message: 'Agent already registered',
+          data: {
+            agent: existing,
+            tx_hash: existing?.tx_hash || txHash,
+            on_chain_error: onChainError,
+          }
+        });
+        return;
+      }
+      throw dbError;
+    }
 
     res.status(201).json({
       success: true,
