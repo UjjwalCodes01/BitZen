@@ -18,6 +18,15 @@ export const initDatabase = async (): Promise<void> => {
 
 const createTables = async (): Promise<void> => {
   const queries = [
+    // Auth nonces table (for server-side nonce validation)
+    `CREATE TABLE IF NOT EXISTS auth_nonces (
+      address VARCHAR(66) PRIMARY KEY,
+      nonce VARCHAR(128) NOT NULL,
+      message TEXT NOT NULL,
+      expires_at TIMESTAMP NOT NULL DEFAULT (NOW() + INTERVAL '5 minutes'),
+      created_at TIMESTAMP DEFAULT NOW()
+    )`,
+
     // Agents table
     `CREATE TABLE IF NOT EXISTS agents (
       id SERIAL PRIMARY KEY,
@@ -37,7 +46,7 @@ const createTables = async (): Promise<void> => {
       description TEXT,
       endpoint VARCHAR(255) NOT NULL,
       total_stake DECIMAL NOT NULL,
-      tx_hash VARCHAR(66) NOT NULL,
+      tx_hash VARCHAR(66),
       is_active BOOLEAN DEFAULT true,
       created_at TIMESTAMP DEFAULT NOW()
     )`,
@@ -49,7 +58,7 @@ const createTables = async (): Promise<void> => {
       reviewer_address VARCHAR(66) NOT NULL,
       rating INTEGER CHECK (rating >= 1 AND rating <= 5),
       review_hash VARCHAR(66) NOT NULL,
-      tx_hash VARCHAR(66) NOT NULL,
+      tx_hash VARCHAR(66),
       created_at TIMESTAMP DEFAULT NOW()
     )`,
 
@@ -59,7 +68,7 @@ const createTables = async (): Promise<void> => {
       service_id INTEGER REFERENCES services(id),
       auditor_address VARCHAR(66) NOT NULL,
       amount DECIMAL NOT NULL,
-      tx_hash VARCHAR(66) NOT NULL,
+      tx_hash VARCHAR(66),
       is_active BOOLEAN DEFAULT true,
       staked_at TIMESTAMP DEFAULT NOW(),
       unstaked_at TIMESTAMP
@@ -72,7 +81,7 @@ const createTables = async (): Promise<void> => {
       session_key VARCHAR(66) NOT NULL,
       expiration_block BIGINT NOT NULL,
       max_spend DECIMAL NOT NULL,
-      tx_hash VARCHAR(66) NOT NULL,
+      tx_hash VARCHAR(66),
       created_at TIMESTAMP DEFAULT NOW()
     )`,
 

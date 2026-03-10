@@ -31,11 +31,14 @@ export function useServices() {
 
 export function useService(id: string | undefined) {
   const [data, setData] = useState<Service | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(!!id);
   const [error, setError] = useState<string | null>(null);
 
   const fetch = useCallback(async () => {
-    if (!id) return;
+    if (!id) {
+      setIsLoading(false);
+      return;
+    }
     try {
       setIsLoading(true);
       setError(null);
@@ -58,11 +61,14 @@ export function useService(id: string | undefined) {
 
 export function useReviews(serviceId: string | undefined) {
   const [data, setData] = useState<Review[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(!!serviceId);
   const [error, setError] = useState<string | null>(null);
 
   const fetch = useCallback(async () => {
-    if (!serviceId) return;
+    if (!serviceId) {
+      setIsLoading(false);
+      return;
+    }
     try {
       setIsLoading(true);
       setError(null);
@@ -85,10 +91,13 @@ export function useReviews(serviceId: string | undefined) {
 
 export function useReputation(serviceId: string | undefined) {
   const [data, setData] = useState<Reputation | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(!!serviceId);
 
   const fetch = useCallback(async () => {
-    if (!serviceId) return;
+    if (!serviceId) {
+      setIsLoading(false);
+      return;
+    }
     try {
       setIsLoading(true);
       const result = await services.getReputation(serviceId);

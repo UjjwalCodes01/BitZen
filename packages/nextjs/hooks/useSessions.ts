@@ -5,11 +5,14 @@ import { account, type SessionKey } from "@/lib/api";
 
 export function useSessions(agentAddress: string | undefined) {
   const [data, setData] = useState<SessionKey[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(!!agentAddress);
   const [error, setError] = useState<string | null>(null);
 
   const fetch = useCallback(async () => {
-    if (!agentAddress) return;
+    if (!agentAddress) {
+      setIsLoading(false);
+      return;
+    }
     try {
       setIsLoading(true);
       setError(null);

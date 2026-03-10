@@ -21,13 +21,14 @@ export const RPC_URLS = {
     process.env.NEXT_PUBLIC_DEVNET_PROVIDER_URL || "http://127.0.0.1:5050",
   sepolia:
     process.env.NEXT_PUBLIC_SEPOLIA_PROVIDER_URL ||
-    "https://starknet-sepolia.g.alchemy.com/starknet/version/rpc/v0_7/demo",
+    "https://free-rpc.nethermind.io/sepolia-juno/v0_7",
   mainnet:
     process.env.NEXT_PUBLIC_MAINNET_PROVIDER_URL ||
-    "https://starknet-mainnet.g.alchemy.com/starknet/version/rpc/v0_7/demo",
+    "https://free-rpc.nethermind.io/mainnet-juno/v0_7",
 } as const;
 
-export const EXPLORER_URL = "https://sepolia.starkscan.co";
+export const EXPLORER_URL =
+  process.env.NEXT_PUBLIC_EXPLORER_URL || "https://sepolia.starkscan.co";
 
 export const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || "BitZen";
 export const APP_DESCRIPTION =

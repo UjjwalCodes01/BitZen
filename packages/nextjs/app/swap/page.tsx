@@ -20,7 +20,6 @@ import toast from "react-hot-toast";
 const TOKENS = [
   { symbol: "BTC", name: "Bitcoin", icon: "₿", color: "text-amber-400" },
   { symbol: "STRK", name: "Starknet", icon: "◆", color: "text-accent-400" },
-  { symbol: "ETH", name: "Ethereum", icon: "Ξ", color: "text-blue-400" },
 ];
 
 export default function SwapPage() {
@@ -234,8 +233,8 @@ export default function SwapPage() {
         <div className="grid grid-cols-3 gap-3 mt-6">
           {[
             { icon: BtcIcon, label: "Cross-chain", desc: "BTC ↔ STRK" },
-            { icon: CheckCircle, label: "Trustless", desc: "On-chain" },
-            { icon: Clock, label: "Fast", desc: "~2 min" },
+            { icon: CheckCircle, label: "Non-custodial", desc: "On-chain" },
+            { icon: Clock, label: "Estimated", desc: "~10 min" },
           ].map((item) => (
             <div
               key={item.label}

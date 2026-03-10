@@ -26,7 +26,7 @@ async function main() {
     agentAddress: process.env.ACCOUNT_ADDRESS || '',
     network: 'sepolia',
     rpcUrl: process.env.STARKNET_RPC_URL || '',
-    backendUrl: process.env.BACKEND_URL || 'http://localhost:3001'
+    backendUrl: process.env.BACKEND_URL || 'http://localhost:3002'
   };
 
   if (!context.agentAddress) {

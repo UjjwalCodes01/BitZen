@@ -71,50 +71,11 @@ router.post('/generate', async (req: Request, res: Response) => {
     const addrBigInt = BigInt(agentAddress);
 
     if (!fs.existsSync(WASM_PATH) || !fs.existsSync(ZKEY_PATH)) {
-      logger.warn('Circuit artefacts not found — returning mock proof for demo/dev mode');
-
-      const mockSecret = BigInt('0x' + crypto.randomBytes(31).toString('hex'));
-      const commitment = await poseidonCommitment(mockSecret, addrBigInt);
-      const secretHex  = '0x' + crypto.randomBytes(31).toString('hex');
-      const timestamp  = BigInt(Math.floor(Date.now() / 1000));
-      const expiresAt  = timestamp + BigInt(PROOF_TTL_SECONDS);
-      const proofId    = `mock_proof_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
-
-      const mockProof = {
-        pi_a: [crypto.randomBytes(32).toString('hex'), crypto.randomBytes(32).toString('hex'), '1'],
-        pi_b: [[crypto.randomBytes(32).toString('hex'), crypto.randomBytes(32).toString('hex')], [crypto.randomBytes(32).toString('hex'), crypto.randomBytes(32).toString('hex')], ['1', '0']],
-        pi_c: [crypto.randomBytes(32).toString('hex'), crypto.randomBytes(32).toString('hex'), '1'],
-        protocol: 'groth16',
-        curve: 'bn128',
-      };
-      const mockPublicSignals = [commitment.toString(), addrBigInt.toString(), timestamp.toString(), expiresAt.toString()];
-      const mockCalldata = [`0x${crypto.randomBytes(32).toString('hex')}`, `0x${crypto.randomBytes(32).toString('hex')}`];
-
-      await saveProof({
-        proofId,
-        agentAddress,
-        proof:         mockProof,
-        publicSignals: mockPublicSignals,
-        calldata:      mockCalldata,
-        commitment:    commitment.toString(),
-        expiresAt:     Number(expiresAt),
-        createdAt:     Date.now(),
-        status:        'generated',
-      });
-
-      return res.json({
-        success: true,
-        data: {
-          proofId,
-          proof:         mockProof,
-          publicSignals: mockPublicSignals,
-          calldata:      mockCalldata,
-          commitment:    commitment.toString(),
-          expiresAt:     Number(expiresAt),
-          createdAt:     Date.now(),
-          secret:        secretHex,
-          _mock:         true,
-        },
+      logger.warn('Circuit artefacts not found — ZK proof generation unavailable');
+      return res.status(503).json({
+        success: false,
+        error: 'ZK circuit files not configured. Proof generation requires circuit artefacts (WASM + zkey). Run circuits/setup.sh first.',
+        hint: 'Set up the circuit artefacts or contact the admin to enable ZK proof generation.',
       });
     }
 
@@ -204,7 +165,7 @@ router.post('/generate', async (req: Request, res: Response) => {
         commitment:  commitment.toString(),
         expiresAt:   Number(expiresAt),
         createdAt:   Date.now(),
-        secret:      secretHex,  // Returned once; the agent must store this locally
+        // Secret is NOT returned — agent must store it locally from their own generation
       },
     });
   } catch (error: any) {

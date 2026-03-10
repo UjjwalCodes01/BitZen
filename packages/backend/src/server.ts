@@ -26,12 +26,12 @@ import { logger } from './utils/logger';
 import { initDatabase } from './database/init';
 
 const app: Application = express();
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3002;
 
 // Security middleware
 app.use(helmet());
 app.use(cors({
-  origin: process.env.CORS_ORIGIN?.split(',') || '*',
+  origin: process.env.CORS_ORIGIN?.split(',') || 'http://localhost:3000',
   credentials: true
 }));
 

@@ -1,8 +1,25 @@
 import { Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 import { asyncHandler, AppError } from '../middleware/errorHandler';
 import { verifyStarknetSignature } from '../utils/signature';
 import { logger } from '../utils/logger';
+import { pool } from '../database/pool';
+
+function getJwtSecret(): string {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) throw new Error('JWT_SECRET environment variable is required');
+  return secret;
+}
+
+function getJwtRefreshSecret(): string {
+  const secret = process.env.JWT_REFRESH_SECRET;
+  if (!secret) throw new Error('JWT_REFRESH_SECRET environment variable is required');
+  return secret;
+}
+
+const ACCESS_TOKEN_EXPIRY = '24h';
+const REFRESH_TOKEN_EXPIRY = '7d';
 
 export class AuthController {
   /**
@@ -16,8 +33,17 @@ export class AuthController {
       throw new AppError('Address required', 400);
     }
 
-    // Generate nonce/message for user to sign
-    const message = `BitZen Login\nAddress: ${address}\nNonce: ${Date.now()}`;
+    // Generate cryptographically secure nonce
+    const nonce = crypto.randomBytes(32).toString('hex');
+    const message = `BitZen Login\nAddress: ${address}\nNonce: ${nonce}`;
+
+    // Store nonce in database for server-side validation
+    await pool.query(
+      `INSERT INTO auth_nonces (address, nonce, message, expires_at)
+       VALUES ($1, $2, $3, NOW() + INTERVAL '5 minutes')
+       ON CONFLICT (address) DO UPDATE SET nonce = $2, message = $3, expires_at = NOW() + INTERVAL '5 minutes'`,
+      [address, nonce, message]
+    );
 
     res.status(200).json({
       success: true,
@@ -39,6 +65,18 @@ export class AuthController {
       throw new AppError('Address, message, and signature required', 400);
     }
 
+    // Validate nonce from database (H1 fix)
+    const nonceResult = await pool.query(
+      `SELECT nonce, message FROM auth_nonces WHERE address = $1 AND expires_at > NOW()`,
+      [address]
+    );
+    if (nonceResult.rows.length === 0) {
+      throw new AppError('Nonce expired or not found. Request a new sign message.', 401);
+    }
+    if (nonceResult.rows[0].message !== message) {
+      throw new AppError('Message does not match server-issued nonce', 401);
+    }
+
     // Verify Starknet signature
     const isValid = await verifyStarknetSignature(address, message, signature);
 
@@ -46,18 +84,21 @@ export class AuthController {
       throw new AppError('Invalid signature', 401);
     }
 
-    // Generate JWT token
+    // Delete used nonce (one-time use)
+    await pool.query(`DELETE FROM auth_nonces WHERE address = $1`, [address]);
+
+    // Generate JWT token (H2 fix: expiry matches what we tell the client)
     const token = jwt.sign(
       { address },
-      process.env.JWT_SECRET || 'secret',
-      { expiresIn: '24h' }
+      getJwtSecret(),
+      { expiresIn: ACCESS_TOKEN_EXPIRY }
     );
 
     // Generate refresh token
     const refreshToken = jwt.sign(
       { address },
-      process.env.JWT_REFRESH_SECRET || 'refresh-secret',
-      { expiresIn: '7d' }
+      getJwtRefreshSecret(),
+      { expiresIn: REFRESH_TOKEN_EXPIRY }
     );
 
     logger.info(`User authenticated: ${address}`);
@@ -68,7 +109,7 @@ export class AuthController {
       data: {
         token,
         refreshToken,
-        expiresIn: process.env.JWT_EXPIRE || '7d'
+        expiresIn: ACCESS_TOKEN_EXPIRY
       }
     });
   });
@@ -88,21 +129,21 @@ export class AuthController {
       // Verify refresh token
       const decoded = jwt.verify(
         refreshToken,
-        process.env.JWT_REFRESH_SECRET || 'refresh-secret'
+        getJwtRefreshSecret()
       ) as { address: string };
 
       // Generate new access token
       const newToken = jwt.sign(
         { address: decoded.address },
-        process.env.JWT_SECRET || 'secret',
-        { expiresIn: '24h' }
+        getJwtSecret(),
+        { expiresIn: ACCESS_TOKEN_EXPIRY }
       );
 
       res.status(200).json({
         success: true,
         data: {
           token: newToken,
-          expiresIn: process.env.JWT_EXPIRE || '7d'
+          expiresIn: ACCESS_TOKEN_EXPIRY
         }
       });
     } catch (error) {

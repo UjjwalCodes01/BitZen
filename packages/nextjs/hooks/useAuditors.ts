@@ -5,11 +5,14 @@ import { auditors, type Stake } from "@/lib/api";
 
 export function useStakes(address: string | undefined) {
   const [data, setData] = useState<Stake[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(!!address);
   const [error, setError] = useState<string | null>(null);
 
   const fetch = useCallback(async () => {
-    if (!address) return;
+    if (!address) {
+      setIsLoading(false);
+      return;
+    }
     try {
       setIsLoading(true);
       setError(null);
@@ -32,11 +35,14 @@ export function useStakes(address: string | undefined) {
 
 export function useServiceAuditors(serviceId: string | undefined) {
   const [data, setData] = useState<Stake[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(!!serviceId);
   const [error, setError] = useState<string | null>(null);
 
   const fetch = useCallback(async () => {
-    if (!serviceId) return;
+    if (!serviceId) {
+      setIsLoading(false);
+      return;
+    }
     try {
       setIsLoading(true);
       setError(null);

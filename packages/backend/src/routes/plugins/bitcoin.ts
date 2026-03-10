@@ -35,8 +35,15 @@ async function callGardenAPI(endpoint: string, method: string = 'GET', data?: an
     const response = await fetch(`${GARDEN_API_URL}${endpoint}`, options);
     
     if (!response.ok) {
-      const error = await response.text();
-      throw new Error(`Garden API error: ${response.status} - ${error}`);
+      let errorText: string;
+      try {
+        errorText = await response.text();
+        // Truncate potential HTML responses
+        if (errorText.length > 200) errorText = errorText.substring(0, 200) + '...';
+      } catch {
+        errorText = response.statusText;
+      }
+      throw new Error(`Garden API error: ${response.status} - ${errorText}`);
     }
 
     return await response.json();
@@ -116,14 +123,21 @@ router.post('/quote', async (req: Request, res: Response) => {
         const prices = await cgRes.json() as Record<string, { usd?: number }>;
         const BTC_USD  = prices.bitcoin?.usd  ?? 0;
         const STRK_USD = prices.starknet?.usd ?? 0;
+        if (BTC_USD === 0 || STRK_USD === 0) {
+          throw new Error('Incomplete price data from CoinGecko');
+        }
         liveRate = fromCurrency === 'BTC'
-          ? (STRK_USD > 0 ? Math.round(BTC_USD / STRK_USD) : 45000)
-          : (STRK_USD > 0 ? STRK_USD / BTC_USD : 1 / 45000);
+          ? Math.round(BTC_USD / STRK_USD)
+          : STRK_USD / BTC_USD;
       } else {
-        liveRate = fromCurrency === 'BTC' ? 45000 : 1 / 45000;
+        throw new Error(`CoinGecko returned ${cgRes.status}`);
       }
-    } catch {
-      liveRate = fromCurrency === 'BTC' ? 45000 : 1 / 45000;
+    } catch (cgError: any) {
+      logger.error('CoinGecko rate fetch failed:', cgError.message);
+      return res.status(503).json({
+        success: false,
+        error: 'Exchange rates temporarily unavailable. Please try again later.',
+      });
     }
 
     const numAmount = parseFloat(amount);
@@ -424,10 +438,10 @@ router.get('/rates', async (_req: Request, res: Response) => {
         return res.json({
           success: true,
           data: {
-            BTC_STRK: rates.BTC_STRK || 45230,
-            STRK_BTC: rates.STRK_BTC || (1 / 45230),
-            BTC_USD: rates.BTC_USD || 98000,
-            STRK_USD: rates.STRK_USD || 2.17,
+            BTC_STRK: rates.BTC_STRK || 0,
+            STRK_BTC: rates.STRK_BTC || 0,
+            BTC_USD: rates.BTC_USD || 0,
+            STRK_USD: rates.STRK_USD || 0,
             updatedAt: Date.now(),
           },
         });

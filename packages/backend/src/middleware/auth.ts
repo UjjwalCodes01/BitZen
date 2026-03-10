@@ -16,6 +16,14 @@ declare global {
   }
 }
 
+function getJwtSecret(): string {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    throw new Error('JWT_SECRET environment variable is required');
+  }
+  return secret;
+}
+
 export const authenticate = async (
   req: Request,
   res: Response,
@@ -36,7 +44,7 @@ export const authenticate = async (
     // Verify token
     const decoded = jwt.verify(
       token,
-      process.env.JWT_SECRET || 'secret'
+      getJwtSecret()
     ) as JWTPayload;
 
     // Attach user to request
@@ -62,7 +70,7 @@ export const optionalAuth = async (
     if (token) {
       const decoded = jwt.verify(
         token,
-        process.env.JWT_SECRET || 'secret'
+        getJwtSecret()
       ) as JWTPayload;
       req.user = decoded;
     }

@@ -255,7 +255,7 @@ export async function runAgent() {
     agentAddress: process.env.ACCOUNT_ADDRESS || '0x123...',
     network: 'sepolia',
     rpcUrl: process.env.STARKNET_RPC_URL || '',
-    backendUrl: process.env.BACKEND_URL || 'http://localhost:3001'
+    backendUrl: process.env.BACKEND_URL || 'http://localhost:3002'
   };
 
   const configPath = path.join(__dirname, '../config/agents/bitzen.agent.json');

@@ -8,7 +8,8 @@ dns.setDefaultResultOrder('ipv4first');
 export const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: {
-    rejectUnauthorized: false
+    // In production, always validate SSL certs. Supabase provides valid certs.
+    rejectUnauthorized: process.env.NODE_ENV === 'production' ? true : false
   },
   max: 20,
   idleTimeoutMillis: 30000,

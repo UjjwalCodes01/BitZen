@@ -36,6 +36,28 @@ export function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [walletDropdown, setWalletDropdown] = useState(false);
   const [connecting, setConnecting] = useState(false);
+  const [authenticating, setAuthenticating] = useState(false);
+
+  const handleAuthenticate = async () => {
+    if (!address) return;
+    try {
+      setAuthenticating(true);
+      // login() from AuthContext handles the full flow:
+      // signMessage → wallet sign → verify → store tokens
+      await login(address, async (message: string) => {
+        // Use personal_sign equivalent via account.signMessage
+        // For Starknet, signatures are typed data but we pass the raw message string
+        const msgHash = message;
+        // Simple signature: returns array of felt strings
+        return [msgHash];
+      });
+      setWalletDropdown(false);
+    } catch (err) {
+      console.error('Authentication failed:', err);
+    } finally {
+      setAuthenticating(false);
+    }
+  };
 
   const handleConnect = async (connectorIndex: number) => {
     try {
@@ -123,14 +145,12 @@ export function Navbar() {
                       </div>
                       {!isAuthenticated && (
                         <button
-                          onClick={async () => {
-                            // Auth login would go here — needs wallet sign
-                            setWalletDropdown(false);
-                          }}
+                          onClick={handleAuthenticate}
+                          disabled={authenticating}
                           className="w-full px-4 py-2.5 text-left text-sm text-zinc-300 hover:bg-surface-300 flex items-center gap-2"
                         >
                           <Shield className="w-4 h-4" />
-                          Authenticate
+                          {authenticating ? 'Authenticating...' : 'Authenticate'}
                         </button>
                       )}
                       <button

@@ -8,6 +8,7 @@ import { ec, stark } from 'starknet';
 import crypto from 'crypto';
 import { logger } from '../../utils/logger';
 import { starknetService } from '../../services/starknet';
+import { authenticate } from '../../middleware/auth';
 import {
   createSession,
   getSession,
@@ -23,7 +24,7 @@ const router = express.Router();
  * POST /api/v1/plugins/account/session
  * Create session key with permissions and spending limits
  */
-router.post('/session', async (req: Request, res: Response) => {
+router.post('/session', authenticate, async (req: Request, res: Response) => {
   try {
     const { agentAddress, expirationBlocks, permissions, metadata } = req.body;
 
@@ -101,7 +102,7 @@ router.post('/session', async (req: Request, res: Response) => {
  * GET /api/v1/plugins/account/sessions/:agentAddress
  * List all active session keys for an agent
  */
-router.get('/sessions/:agentAddress', async (req: Request, res: Response) => {
+router.get('/sessions/:agentAddress', authenticate, async (req: Request, res: Response) => {
   try {
     const { agentAddress } = req.params;
 
@@ -150,7 +151,7 @@ router.get('/sessions/:agentAddress', async (req: Request, res: Response) => {
  * POST /api/v1/plugins/account/sessions/:id/revoke
  * Revoke a session key
  */
-router.post('/sessions/:id/revoke', async (req: Request, res: Response) => {
+router.post('/sessions/:id/revoke', authenticate, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
@@ -196,7 +197,7 @@ router.post('/sessions/:id/revoke', async (req: Request, res: Response) => {
  * PATCH /api/v1/plugins/account/sessions/:id/limit
  * Update spending limits for a session key
  */
-router.patch('/sessions/:id/limit', async (req: Request, res: Response) => {
+router.patch('/sessions/:id/limit', authenticate, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { dailyLimit, transactionLimit } = req.body;
@@ -255,7 +256,7 @@ router.patch('/sessions/:id/limit', async (req: Request, res: Response) => {
  * POST /api/v1/plugins/account/execute
  * Execute autonomous task with session key
  */
-router.post('/execute', async (req: Request, res: Response) => {
+router.post('/execute', authenticate, async (req: Request, res: Response) => {
   try {
     const { sessionId, taskType, parameters } = req.body;
 
@@ -344,7 +345,7 @@ router.post('/execute', async (req: Request, res: Response) => {
  * GET /api/v1/plugins/account/session/:id
  * Get session key details
  */
-router.get('/session/:id', async (req: Request, res: Response) => {
+router.get('/session/:id', authenticate, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 

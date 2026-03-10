@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Bot, Github, ExternalLink } from "lucide-react";
+import { EXPLORER_URL } from "@/lib/constants";
 
 export function Footer() {
   return (
@@ -69,7 +70,7 @@ export function Footer() {
                 GitHub
               </a>
               <a
-                href="https://sepolia.starkscan.co"
+                href={EXPLORER_URL}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-sm text-zinc-500 hover:text-zinc-300 transition-colors flex items-center gap-1.5"

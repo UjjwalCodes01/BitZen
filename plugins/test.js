@@ -9,7 +9,7 @@ const path = require('path');
 // Set environment variables
 process.env.ACCOUNT_ADDRESS = process.env.ACCOUNT_ADDRESS || '0x0447ae02a8f08110852bd541d2d9fbf0d512cea73041cc579efb27bf8a1bf22e';
 process.env.STARKNET_RPC_URL = process.env.STARKNET_RPC_URL || 'https://starknet-sepolia.g.alchemy.com/starknet/version/rpc/v0_9/K_hKu4IgnPgrF8O82GLuYU';
-process.env.BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:3001';
+process.env.BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:3002';
 
 console.log('🧪 Testing BitZen Agent Plugins...\n');
 

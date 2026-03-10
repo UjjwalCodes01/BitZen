@@ -68,15 +68,26 @@ export class ServiceService {
     const offset = (filters.page - 1) * filters.limit;
     let whereClause = 'WHERE is_active = true';
     const queryParams: any[] = [filters.limit, offset];
-    let paramIndex = 3;
+    // Separate params for count query (no LIMIT/OFFSET)
+    const countParams: any[] = [];
+    let dataParamIndex = 3;
+    let countParamIndex = 1;
 
     if (filters.min_stake) {
-      whereClause += ` AND total_stake >= $${paramIndex}`;
+      whereClause += ` AND total_stake >= $${dataParamIndex}`;
       queryParams.push(filters.min_stake);
-      paramIndex++;
+      countParams.push(filters.min_stake);
+      dataParamIndex++;
+      countParamIndex++;
     }
 
-    const countQuery = `SELECT COUNT(*) FROM services ${whereClause}`;
+    // Count query uses its own parameter indices starting at $1
+    let countWhereClause = 'WHERE is_active = true';
+    if (filters.min_stake) {
+      countWhereClause += ` AND total_stake >= $1`;
+    }
+
+    const countQuery = `SELECT COUNT(*) FROM services ${countWhereClause}`;
     const dataQuery = `
       SELECT s.*, 
         COALESCE(AVG(r.rating), 0) as avg_rating,
@@ -91,7 +102,7 @@ export class ServiceService {
 
     try {
       const [countResult, dataResult] = await Promise.all([
-        pool.query(countQuery, queryParams.slice(2)),
+        pool.query(countQuery, countParams),
         pool.query(dataQuery, queryParams)
       ]);
 

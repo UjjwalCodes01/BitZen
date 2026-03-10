@@ -2,6 +2,8 @@
 // BitZen — Utility Helpers
 // ============================================
 
+import { EXPLORER_URL } from "@/lib/constants";
+
 /**
  * Truncate a hex address for display: 0x1234...abcd
  */
@@ -102,8 +104,7 @@ export function explorerLink(
   hash: string,
   type: "tx" | "contract" | "block" = "tx"
 ): string {
-  const base = "https://sepolia.starkscan.co";
-  return `${base}/${type}/${hash}`;
+  return `${EXPLORER_URL}/${type}/${hash}`;
 }
 
 /**

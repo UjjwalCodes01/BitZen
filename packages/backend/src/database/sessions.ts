@@ -7,6 +7,48 @@
 
 import pool from './pool';
 import { logger } from '../utils/logger';
+import crypto from 'crypto';
+
+// ─── Encryption helpers ──────────────────────────────────────────────────────
+
+const ENCRYPTION_ALGORITHM = 'aes-256-gcm';
+
+function getEncryptionKey(): Buffer {
+  const key = process.env.ENCRYPTION_KEY;
+  if (!key) {
+    throw new Error('ENCRYPTION_KEY environment variable is required for session key storage');
+  }
+  // Derive a 32-byte key from the env var
+  return crypto.createHash('sha256').update(key).digest();
+}
+
+function encryptPrivateKey(plaintext: string): string {
+  const key = getEncryptionKey();
+  const iv = crypto.randomBytes(16);
+  const cipher = crypto.createCipheriv(ENCRYPTION_ALGORITHM, key, iv);
+  let encrypted = cipher.update(plaintext, 'utf8', 'hex');
+  encrypted += cipher.final('hex');
+  const authTag = cipher.getAuthTag().toString('hex');
+  // Format: iv:authTag:ciphertext
+  return `${iv.toString('hex')}:${authTag}:${encrypted}`;
+}
+
+function decryptPrivateKey(encryptedStr: string): string {
+  const key = getEncryptionKey();
+  const parts = encryptedStr.split(':');
+  if (parts.length !== 3) {
+    // Legacy unencrypted value — return as-is (will be re-encrypted on next write)
+    return encryptedStr;
+  }
+  const iv = Buffer.from(parts[0], 'hex');
+  const authTag = Buffer.from(parts[1], 'hex');
+  const ciphertext = parts[2];
+  const decipher = crypto.createDecipheriv(ENCRYPTION_ALGORITHM, key, iv);
+  decipher.setAuthTag(authTag);
+  let decrypted = decipher.update(ciphertext, 'hex', 'utf8');
+  decrypted += decipher.final('utf8');
+  return decrypted;
+}
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -85,7 +127,7 @@ export async function createSession(s: SessionRecord): Promise<void> {
       s.sessionId,
       s.agentAddress,
       s.publicKey,
-      s.privateKey,
+      encryptPrivateKey(s.privateKey),
       JSON.stringify(s.permissions),
       s.expirationBlocks,
       s.expiresAt,
@@ -188,7 +230,7 @@ function rowToRecord(row: any): SessionRecord {
     sessionId: row.session_id,
     agentAddress: row.agent_address,
     publicKey: row.public_key,
-    privateKey: row.private_key,
+    privateKey: decryptPrivateKey(row.private_key),
     permissions: row.permissions ?? [],
     expirationBlocks: row.expiration_blocks,
     expiresAt: Math.round(parseFloat(row.expires_at_ms)),

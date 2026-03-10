@@ -12,6 +12,8 @@ function getBaseUrl() {
 
 function getToken(): string | null {
   if (typeof window === "undefined") return null;
+  // NOTE: For hackathon scope, JWT is stored in localStorage.
+  // For production, migrate to httpOnly cookies to prevent XSS token theft.
   return localStorage.getItem("bitzen_token");
 }
 
@@ -38,7 +40,8 @@ export class ApiError extends Error {
 
 async function request<T>(
   endpoint: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
+  _isRetry = false
 ): Promise<T> {
   const url = `${getBaseUrl()}${endpoint}`;
   const token = getToken();
@@ -56,6 +59,34 @@ async function request<T>(
     ...options,
     headers,
   });
+
+  // M7+M8: Auto-refresh on 401 and retry once
+  if (response.status === 401 && !_isRetry) {
+    const refreshToken = typeof window !== "undefined"
+      ? localStorage.getItem("bitzen_refresh_token")
+      : null;
+    if (refreshToken) {
+      try {
+        const refreshResponse = await fetch(`${getBaseUrl()}/auth/refresh`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ refreshToken }),
+        });
+        if (refreshResponse.ok) {
+          const refreshData = await refreshResponse.json();
+          if (refreshData?.data?.token) {
+            setTokens(refreshData.data.token, refreshToken);
+            // Retry original request with new token
+            return request<T>(endpoint, options, true);
+          }
+        }
+      } catch {
+        // Refresh failed — fall through to error
+      }
+    }
+    // Refresh not available or failed — clear tokens
+    clearTokens();
+  }
 
   if (!response.ok) {
     let errorData;
